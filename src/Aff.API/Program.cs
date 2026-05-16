@@ -1,5 +1,6 @@
 using Aff.API.Endpoints;
 using Aff.API.Middleware;
+using Aff.Application.Audit;
 using Aff.Application.Campaigns;
 using Aff.Application.Partners;
 using Aff.Application.Settlements;
@@ -13,6 +14,7 @@ builder.Services.AddDbContext<AffDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("Default")
                       ?? "Data Source=aff.db", b => b.MigrationsAssembly("Aff.API")));
 
+builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<PartnerService>();
 builder.Services.AddScoped<CampaignService>();
 builder.Services.AddScoped<TrackingService>();
@@ -55,5 +57,6 @@ app.MapLinkEndpoints();
 app.MapTrackingEndpoints();
 app.MapConversionEndpoints();
 app.MapSettlementEndpoints();
+app.MapAuditEndpoints();
 
 app.Run();

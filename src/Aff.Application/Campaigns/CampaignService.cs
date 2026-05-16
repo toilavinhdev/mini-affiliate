@@ -1,3 +1,4 @@
+using Aff.Application.Audit;
 using Aff.Application.Campaigns.Dtos;
 using Aff.Domain.Campaigns;
 using Aff.Domain.Partners;
@@ -7,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Aff.Application.Campaigns;
 
-public class CampaignService(AffDbContext db)
+public class CampaignService(AffDbContext db, AuditService audit)
 {
     public async Task<CampaignResponse> CreateAsync(CreateCampaignRequest req)
     {
@@ -21,6 +22,7 @@ public class CampaignService(AffDbContext db)
             req.CommissionType, req.CommissionValue, req.StartDate, req.EndDate, req.MaxBudget);
 
         db.Campaigns.Add(campaign);
+        audit.Log("Campaign", campaign.Id, "Created", newStatus: "Draft");
         await db.SaveChangesAsync();
         return CampaignMapper.ToResponse(campaign);
     }
@@ -45,7 +47,9 @@ public class CampaignService(AffDbContext db)
     {
         var campaign = await db.Campaigns.FindAsync(id)
             ?? throw new KeyNotFoundException("Campaign not found.");
+        var oldStatus = campaign.Status.ToString();
         campaign.Activate();
+        audit.Log("Campaign", id, "Activated", oldStatus, "Active");
         await db.SaveChangesAsync();
         return CampaignMapper.ToResponse(campaign);
     }
@@ -55,6 +59,7 @@ public class CampaignService(AffDbContext db)
         var campaign = await db.Campaigns.FindAsync(id)
             ?? throw new KeyNotFoundException("Campaign not found.");
         campaign.Pause();
+        audit.Log("Campaign", id, "Paused", "Active", "Paused");
         await db.SaveChangesAsync();
         return CampaignMapper.ToResponse(campaign);
     }
@@ -89,6 +94,7 @@ public class CampaignService(AffDbContext db)
 
         var link = AffiliateLink.Create(campaignId, campaign.PartnerId, trackingCode, req.TargetUrl, req.Label);
         db.AffiliateLinks.Add(link);
+        audit.Log("Campaign", campaignId, "LinkCreated", metadata: trackingCode);
         await db.SaveChangesAsync();
         return CampaignMapper.ToResponse(link, baseUrl);
     }

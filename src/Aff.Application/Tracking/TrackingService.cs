@@ -1,3 +1,4 @@
+using Aff.Application.Audit;
 using Aff.Application.Tracking.Dtos;
 using Aff.Domain.Campaigns;
 using Aff.Domain.Tracking;
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Aff.Application.Tracking;
 
-public class TrackingService(AffDbContext db)
+public class TrackingService(AffDbContext db, AuditService audit)
 {
     /// <summary>
     /// Returns (targetUrl, clickId) for redirect. Throws if link not found or inactive.
@@ -94,6 +95,8 @@ public class TrackingService(AffDbContext db)
         if (click != null)
             click.MarkConverted(conversion.Id);
 
+        audit.Log("Conversion", conversion.Id, "Received", newStatus: "Pending",
+            metadata: $"tx:{req.ServiceTransactionId}");
         await db.SaveChangesAsync();
         return ConversionMapper.ToResponse(conversion);
     }
@@ -126,6 +129,7 @@ public class TrackingService(AffDbContext db)
         var conversion = await db.Conversions.FindAsync(id)
             ?? throw new KeyNotFoundException("Conversion not found.");
         conversion.Approve();
+        audit.Log("Conversion", id, "Approved", "Pending", "Approved");
         await db.SaveChangesAsync();
         return ConversionMapper.ToResponse(conversion);
     }
@@ -135,11 +139,11 @@ public class TrackingService(AffDbContext db)
         var conversion = await db.Conversions.FindAsync(id)
             ?? throw new KeyNotFoundException("Conversion not found.");
 
-        // Refund the campaign budget
         var campaign = await db.Campaigns.FindAsync(conversion.CampaignId);
         campaign?.RefundSpentBudget(conversion.CommissionAmount);
 
         conversion.Reject(reason);
+        audit.Log("Conversion", id, "Rejected", "Pending", "Rejected", metadata: reason);
         await db.SaveChangesAsync();
         return ConversionMapper.ToResponse(conversion);
     }

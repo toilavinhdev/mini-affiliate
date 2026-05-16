@@ -1,3 +1,4 @@
+using Aff.Domain.Audit;
 using Aff.Domain.Campaigns;
 using Aff.Domain.Partners;
 using Aff.Domain.Settlements;
@@ -8,6 +9,7 @@ namespace Aff.Infrastructure.Persistence;
 
 public class AffDbContext(DbContextOptions<AffDbContext> options) : DbContext(options)
 {
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Partner> Partners => Set<Partner>();
     public DbSet<Campaign> Campaigns => Set<Campaign>();
     public DbSet<AffiliateLink> AffiliateLinks => Set<AffiliateLink>();

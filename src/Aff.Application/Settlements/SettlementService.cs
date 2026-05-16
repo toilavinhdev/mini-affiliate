@@ -1,3 +1,4 @@
+using Aff.Application.Audit;
 using Aff.Application.Settlements.Dtos;
 using Aff.Domain.Settlements;
 using Aff.Domain.Tracking;
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Aff.Application.Settlements;
 
-public class SettlementService(AffDbContext db)
+public class SettlementService(AffDbContext db, AuditService audit)
 {
     /// <summary>
     /// Generates settlement(s) for explicitly selected conversion IDs.
@@ -40,6 +41,9 @@ public class SettlementService(AffDbContext db)
 
             foreach (var conversion in group)
                 conversion.Settle(settlement.Id);
+
+            audit.Log("Settlement", settlement.Id, "Generated", newStatus: "Pending",
+                metadata: $"conversions:{group.Count()}");
         }
 
         await db.SaveChangesAsync();
@@ -81,6 +85,7 @@ public class SettlementService(AffDbContext db)
             ?? throw new KeyNotFoundException("Settlement not found.");
 
         settlement.Complete(req.PaymentReference, req.Note);
+        audit.Log("Settlement", id, "Processed", "Pending", "Completed", metadata: req.PaymentReference);
         await db.SaveChangesAsync();
         return SettlementMapper.ToResponse(settlement);
     }

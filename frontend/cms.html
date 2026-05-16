@@ -88,6 +88,10 @@
       class="py-3 text-sm font-medium text-gray-500 hover:text-gray-900 whitespace-nowrap border-b-2 border-transparent transition-colors">
       🏦 Settlements
     </button>
+    <button onclick="switchTab('audit')" id="tab-audit"
+      class="py-3 text-sm font-medium text-gray-500 hover:text-gray-900 whitespace-nowrap border-b-2 border-transparent transition-colors">
+      📋 Audit Log
+    </button>
   </div>
 </nav>
 
@@ -300,6 +304,53 @@
     </div>
   </div>
 
+  <!-- ===== AUDIT LOG ===== -->
+  <div id="page-audit" class="hidden">
+    <div class="mb-6 flex items-center justify-between">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Audit Log</h2>
+        <p class="text-sm text-gray-500">Lịch sử thay đổi trạng thái toàn hệ thống</p>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-xl border border-gray-200 px-4 py-3 mb-4 flex flex-wrap gap-3 items-center">
+      <select id="auditEntityType" onchange="loadAuditLogs()"
+        class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400">
+        <option value="">Tất cả Entity</option>
+        <option value="Partner">Partner</option>
+        <option value="Campaign">Campaign</option>
+        <option value="Conversion">Conversion</option>
+        <option value="Settlement">Settlement</option>
+      </select>
+      <input id="auditEntityId" type="text" placeholder="Entity ID (GUID)…"
+        class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-72 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+        onkeydown="if(event.key==='Enter') loadAuditLogs()" />
+      <button onclick="loadAuditLogs()"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-sm">Lọc</button>
+      <button onclick="document.getElementById('auditEntityType').value='';document.getElementById('auditEntityId').value='';loadAuditLogs()"
+        class="border border-gray-300 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-sm text-gray-600">Reset</button>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Thời gian</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Entity</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Entity ID</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Hành động</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Metadata</th>
+            </tr>
+          </thead>
+          <tbody id="auditTable" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <script>
@@ -364,7 +415,7 @@ function closeModal() {
 // ============================================================
 // Tabs
 // ============================================================
-const tabs = ['dashboard', 'partners', 'campaigns', 'links', 'conversions', 'settlements'];
+const tabs = ['dashboard', 'partners', 'campaigns', 'links', 'conversions', 'settlements', 'audit'];
 
 function switchTab(name) {
   tabs.forEach(t => {
@@ -387,6 +438,7 @@ const loaders = {
   links: loadLinks,
   conversions: loadConversions,
   settlements: loadSettlements,
+  audit: loadAuditLogs,
 };
 
 // ============================================================
@@ -404,6 +456,12 @@ function badge(status) {
 
 function fmtDate(d) {
   return d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+}
+
+function fmtDateTime(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('vi-VN') + ' ' + dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 function fmtMoney(n) {
@@ -1201,6 +1259,69 @@ async function processSettlement(id) {
     toast('Settlement đã được xác nhận thanh toán!');
     loadSettlements();
   } catch (e) { toast(e.message, 'error'); }
+}
+
+// ============================================================
+// Audit Log
+// ============================================================
+const AUDIT_ACTION_COLORS = {
+  Registered: 'bg-blue-100 text-blue-700',
+  Created: 'bg-blue-100 text-blue-700',
+  LinkCreated: 'bg-blue-100 text-blue-700',
+  Approved: 'bg-green-100 text-green-700',
+  Processed: 'bg-green-100 text-green-700',
+  Activated: 'bg-green-100 text-green-700',
+  Rejected: 'bg-red-100 text-red-700',
+  Suspended: 'bg-red-100 text-red-700',
+  Paused: 'bg-yellow-100 text-yellow-700',
+  Generated: 'bg-indigo-100 text-indigo-700',
+  Updated: 'bg-gray-100 text-gray-700',
+  Received: 'bg-purple-100 text-purple-700',
+};
+
+function auditActionBadge(action) {
+  const cls = AUDIT_ACTION_COLORS[action] || 'bg-gray-100 text-gray-700';
+  return `<span class="inline-block px-2 py-0.5 rounded text-xs font-medium ${cls}">${action}</span>`;
+}
+
+async function loadAuditLogs() {
+  const entityType = document.getElementById('auditEntityType')?.value || '';
+  const entityId = document.getElementById('auditEntityId')?.value?.trim() || '';
+  let qs = '';
+  if (entityType) qs += `?entityType=${encodeURIComponent(entityType)}`;
+  if (entityId) qs += (qs ? '&' : '?') + `entityId=${encodeURIComponent(entityId)}`;
+
+  try {
+    const logs = await api('GET', `/api/audit${qs}`);
+    const tbody = document.getElementById('auditTable');
+    if (!logs.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-gray-400 py-8">Không có audit log nào.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = logs.map(l => {
+      const statusChange = l.oldStatus || l.newStatus
+        ? `<span class="text-gray-400">${l.oldStatus || '—'}</span>
+           <span class="mx-1 text-gray-400">→</span>
+           <span class="font-medium text-gray-700">${l.newStatus || '—'}</span>`
+        : '<span class="text-gray-300">—</span>';
+      return `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">${fmtDateTime(l.timestamp)}</td>
+          <td class="px-4 py-3"><span class="text-xs font-medium text-gray-700">${l.entityType}</span></td>
+          <td class="px-4 py-3">
+            <span class="text-xs font-mono text-gray-500 cursor-pointer hover:text-indigo-600"
+              title="${l.entityId}" onclick="navigator.clipboard.writeText('${l.entityId}').then(()=>toast('Đã copy ID!','info'))">
+              ${l.entityId.slice(0, 8)}…
+            </span>
+          </td>
+          <td class="px-4 py-3">${auditActionBadge(l.action)}</td>
+          <td class="px-4 py-3 text-xs">${statusChange}</td>
+          <td class="px-4 py-3 text-xs text-gray-500 max-w-xs truncate" title="${l.metadata || ''}">${l.metadata || '—'}</td>
+        </tr>`;
+    }).join('');
+  } catch (e) {
+    toast('Lỗi tải audit log: ' + e.message, 'error');
+  }
 }
 
 // ============================================================

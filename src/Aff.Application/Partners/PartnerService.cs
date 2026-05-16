@@ -1,3 +1,4 @@
+using Aff.Application.Audit;
 using Aff.Application.Partners.Dtos;
 using Aff.Domain.Partners;
 using Aff.Domain.Tracking;
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Aff.Application.Partners;
 
-public class PartnerService(AffDbContext db)
+public class PartnerService(AffDbContext db, AuditService audit)
 {
     public async Task<PartnerResponse> RegisterAsync(RegisterPartnerRequest req)
     {
@@ -19,6 +20,7 @@ public class PartnerService(AffDbContext db)
             req.TaxCode, req.BankName, req.BankAccountNumber, req.BankAccountHolder);
 
         db.Partners.Add(partner);
+        audit.Log("Partner", partner.Id, "Registered", newStatus: "Pending");
         await db.SaveChangesAsync();
         return PartnerResponseMapper.ToResponse(partner);
     }
@@ -35,6 +37,7 @@ public class PartnerService(AffDbContext db)
             ?? throw new KeyNotFoundException("Partner not found.");
         partner.Update(req.BusinessName, req.PhoneNumber, req.TaxCode,
             req.BankName, req.BankAccountNumber, req.BankAccountHolder);
+        audit.Log("Partner", id, "Updated");
         await db.SaveChangesAsync();
         return PartnerResponseMapper.ToResponse(partner);
     }
@@ -44,6 +47,7 @@ public class PartnerService(AffDbContext db)
         var partner = await db.Partners.FindAsync(id)
             ?? throw new KeyNotFoundException("Partner not found.");
         partner.Approve();
+        audit.Log("Partner", id, "Approved", "Pending", "Active");
         await db.SaveChangesAsync();
         return PartnerResponseMapper.ToResponse(partner);
     }
@@ -53,6 +57,7 @@ public class PartnerService(AffDbContext db)
         var partner = await db.Partners.FindAsync(id)
             ?? throw new KeyNotFoundException("Partner not found.");
         partner.Reject(reason);
+        audit.Log("Partner", id, "Rejected", "Pending", "Rejected", metadata: reason);
         await db.SaveChangesAsync();
         return PartnerResponseMapper.ToResponse(partner);
     }
@@ -62,6 +67,7 @@ public class PartnerService(AffDbContext db)
         var partner = await db.Partners.FindAsync(id)
             ?? throw new KeyNotFoundException("Partner not found.");
         partner.Suspend();
+        audit.Log("Partner", id, "Suspended", "Active", "Suspended");
         await db.SaveChangesAsync();
         return PartnerResponseMapper.ToResponse(partner);
     }
