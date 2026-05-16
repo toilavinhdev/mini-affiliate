@@ -15,6 +15,8 @@ public class Conversion : AggregateRoot
     public decimal CommissionAmount { get; private set; }
     public ConversionStatus Status { get; private set; }
     public string? RejectionReason { get; private set; }
+    public bool IsSuspicious { get; private set; }
+    public string? FraudReason { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? ApprovedAt { get; private set; }
     public Guid? SettlementId { get; private set; }
@@ -41,6 +43,12 @@ public class Conversion : AggregateRoot
             Status = ConversionStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
+    }
+
+    public void MarkSuspicious(string reason)
+    {
+        IsSuspicious = true;
+        FraudReason = reason;
     }
 
     public void Approve()

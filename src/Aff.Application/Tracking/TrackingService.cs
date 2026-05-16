@@ -28,6 +28,18 @@ public class TrackingService(AffDbContext db, AuditService audit)
         if (campaign.Status != CampaignStatus.Active)
             throw new InvalidOperationException("Campaign is not active.");
 
+        // Duplicate click dedup: same IP + same trackingCode within 24 h → reuse existing click
+        var cutoff = DateTime.UtcNow.AddHours(-24);
+        var existingClick = await db.Clicks
+            .Where(c => c.TrackingCode == trackingCode
+                     && c.IpAddress == ipAddress
+                     && c.ClickedAt >= cutoff)
+            .OrderByDescending(c => c.ClickedAt)
+            .FirstOrDefaultAsync();
+
+        if (existingClick != null)
+            return (link.TargetUrl, existingClick.Id);
+
         var click = Click.Record(trackingCode, link.CampaignId, link.PartnerId,
             ipAddress, userAgent, referer);
 
@@ -88,6 +100,25 @@ public class TrackingService(AffDbContext db, AuditService audit)
             req.ServiceType, req.ServiceTransactionId, req.EndUserId,
             req.TransactionAmount, commission);
 
+        // Fraud detection
+        var fraudReasons = new List<string>();
+
+        if (click == null)
+            fraudReasons.Add("No matching click found");
+
+        if (click != null && (DateTime.UtcNow - click.ClickedAt).TotalSeconds < 30)
+            fraudReasons.Add($"Click-to-conversion too fast ({(int)(DateTime.UtcNow - click.ClickedAt).TotalSeconds}s)");
+
+        var sameUserCount = await db.Conversions
+            .CountAsync(c => c.EndUserId == req.EndUserId
+                          && c.CampaignId == campaign.Id
+                          && c.Status != ConversionStatus.Rejected);
+        if (sameUserCount >= 3)
+            fraudReasons.Add($"Same end user already has {sameUserCount} conversions on this campaign");
+
+        if (fraudReasons.Count > 0)
+            conversion.MarkSuspicious(string.Join("; ", fraudReasons));
+
         db.Conversions.Add(conversion);
         campaign.AddSpentBudget(commission);
         link.IncrementConversions();
@@ -95,8 +126,9 @@ public class TrackingService(AffDbContext db, AuditService audit)
         if (click != null)
             click.MarkConverted(conversion.Id);
 
+        var suspiciousNote = conversion.IsSuspicious ? $" [SUSPICIOUS: {conversion.FraudReason}]" : "";
         audit.Log("Conversion", conversion.Id, "Received", newStatus: "Pending",
-            metadata: $"tx:{req.ServiceTransactionId}");
+            metadata: $"tx:{req.ServiceTransactionId}{suspiciousNote}");
         await db.SaveChangesAsync();
         return ConversionMapper.ToResponse(conversion);
     }

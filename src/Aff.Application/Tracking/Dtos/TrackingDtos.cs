@@ -25,6 +25,8 @@ public record ConversionResponse(
     decimal CommissionAmount,
     string Status,
     string? RejectionReason,
+    bool IsSuspicious,
+    string? FraudReason,
     DateTime CreatedAt,
     DateTime? ApprovedAt,
     Guid? SettlementId,
@@ -36,5 +38,6 @@ public static class ConversionMapper
         c.Id, c.ClickId, c.TrackingCode, c.CampaignId, c.PartnerId,
         c.ServiceType, c.ServiceTransactionId, c.EndUserId,
         c.TransactionAmount, c.CommissionAmount, c.Status.ToString(),
-        c.RejectionReason, c.CreatedAt, c.ApprovedAt, c.SettlementId, c.SettledAt);
+        c.RejectionReason, c.IsSuspicious, c.FraudReason,
+        c.CreatedAt, c.ApprovedAt, c.SettlementId, c.SettledAt);
 }

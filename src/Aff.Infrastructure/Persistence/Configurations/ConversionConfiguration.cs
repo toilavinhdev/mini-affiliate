@@ -23,6 +23,8 @@ public class ConversionConfiguration : IEntityTypeConfiguration<Conversion>
         builder.Property(c => c.CommissionAmount).HasColumnType("REAL");
         builder.Property(c => c.Status).HasConversion<int>();
         builder.Property(c => c.RejectionReason).HasMaxLength(500);
+        builder.Property(c => c.IsSuspicious);
+        builder.Property(c => c.FraudReason).HasMaxLength(500);
         builder.Property(c => c.CreatedAt).HasConversion<string>();
         builder.Property(c => c.ApprovedAt).HasConversion<string?>();
         builder.Property(c => c.SettlementId).HasConversion<string?>();
