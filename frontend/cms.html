@@ -187,6 +187,7 @@
               <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Partner</th>
               <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Hoa hồng</th>
               <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Budget</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Window</th>
               <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
               <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Hành động</th>
             </tr>
@@ -703,6 +704,9 @@ async function loadCampaigns() {
           <td class="px-4 py-3 text-xs text-gray-600">
             ${c.maxBudget ? fmtMoney(c.spentBudget) + ' / ' + fmtMoney(c.maxBudget) + ' VNĐ' : '∞'}
           </td>
+          <td class="px-4 py-3 text-xs text-gray-600">
+            ${c.attributionWindowDays ? `${c.attributionWindowDays} ngày` : '<span class="text-gray-300">∞</span>'}
+          </td>
           <td class="px-4 py-3">${badge(c.status)}</td>
           <td class="px-4 py-3">
             <div class="flex gap-2">
@@ -772,6 +776,12 @@ function openCreateCampaign() {
           <label class="block text-xs font-medium text-gray-700 mb-1">Ngày kết thúc</label>
           <input name="endDate" type="date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Attribution window (ngày)</label>
+          <input name="attributionWindowDays" type="number" min="1" max="365"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Để trống = không giới hạn" />
+        </div>
       </div>
       <div class="flex gap-2 pt-2">
         <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium">Tạo Campaign</button>
@@ -790,6 +800,8 @@ async function submitCreateCampaign(e) {
   if (data.maxBudget) data.maxBudget = parseFloat(data.maxBudget);
   else delete data.maxBudget;
   if (!data.endDate) delete data.endDate;
+  if (data.attributionWindowDays) data.attributionWindowDays = parseInt(data.attributionWindowDays);
+  else delete data.attributionWindowDays;
   try {
     await api('POST', '/api/campaigns/', data);
     toast('Tạo campaign thành công!');

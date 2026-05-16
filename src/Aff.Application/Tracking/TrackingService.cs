@@ -90,6 +90,10 @@ public class TrackingService(AffDbContext db, AuditService audit)
         var campaign = await db.Campaigns.FindAsync(link.CampaignId)
             ?? throw new InvalidOperationException("Campaign not found.");
 
+        if (click != null && !campaign.IsClickWithinWindow(click.ClickedAt))
+            throw new InvalidOperationException(
+                $"Click đã hết hạn attribution window ({campaign.AttributionWindowDays} ngày). Conversion không được ghi nhận.");
+
         var commission = campaign.CalculateCommission(req.TransactionAmount);
 
         if (!campaign.HasBudgetFor(commission))

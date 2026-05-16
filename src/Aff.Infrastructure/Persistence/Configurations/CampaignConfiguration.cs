@@ -22,6 +22,7 @@ public class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
         builder.Property(c => c.Status).HasConversion<int>();
         builder.Property(c => c.StartDate).HasConversion<string>();
         builder.Property(c => c.EndDate).HasConversion<string?>();
+        builder.Property(c => c.AttributionWindowDays);
         builder.Property(c => c.CreatedAt).HasConversion<string>();
     }
 }

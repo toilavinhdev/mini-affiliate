@@ -15,13 +15,15 @@ public class Campaign : AggregateRoot
     public CampaignStatus Status { get; private set; }
     public DateTime StartDate { get; private set; }
     public DateTime? EndDate { get; private set; }
+    public int? AttributionWindowDays { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
     private Campaign() { }
 
     public static Campaign Create(Guid partnerId, string name, string description,
         string serviceType, CommissionType commissionType, decimal commissionValue,
-        DateTime startDate, DateTime? endDate = null, decimal? maxBudget = null)
+        DateTime startDate, DateTime? endDate = null, decimal? maxBudget = null,
+        int? attributionWindowDays = null)
     {
         return new Campaign
         {
@@ -37,6 +39,7 @@ public class Campaign : AggregateRoot
             Status = CampaignStatus.Draft,
             StartDate = startDate,
             EndDate = endDate,
+            AttributionWindowDays = attributionWindowDays,
             CreatedAt = DateTime.UtcNow
         };
     }
@@ -61,7 +64,8 @@ public class Campaign : AggregateRoot
     }
 
     public void Update(string name, string description, CommissionType commissionType,
-        decimal commissionValue, DateTime startDate, DateTime? endDate, decimal? maxBudget)
+        decimal commissionValue, DateTime startDate, DateTime? endDate, decimal? maxBudget,
+        int? attributionWindowDays = null)
     {
         if (Status == CampaignStatus.Ended)
             throw new InvalidOperationException("Cannot update an ended campaign.");
@@ -72,6 +76,13 @@ public class Campaign : AggregateRoot
         StartDate = startDate;
         EndDate = endDate;
         MaxBudget = maxBudget;
+        AttributionWindowDays = attributionWindowDays;
+    }
+
+    public bool IsClickWithinWindow(DateTime clickedAt)
+    {
+        if (AttributionWindowDays == null) return true;
+        return DateTime.UtcNow <= clickedAt.AddDays(AttributionWindowDays.Value);
     }
 
     public decimal CalculateCommission(decimal transactionAmount)
