@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Affiliate CMS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    [x-cloak] { display: none; }
+    .tab-active { border-bottom: 2px solid #6366f1; color: #6366f1; }
+    .badge-pending  { background:#fef3c7; color:#92400e; }
+    .badge-active   { background:#d1fae5; color:#065f46; }
+    .badge-rejected { background:#fee2e2; color:#991b1b; }
+    .badge-suspended{ background:#e5e7eb; color:#374151; }
+    .badge-draft    { background:#e5e7eb; color:#374151; }
+    .badge-paused   { background:#fef3c7; color:#92400e; }
+    .badge-ended    { background:#fee2e2; color:#991b1b; }
+    .badge-settled  { background:#d1fae5; color:#065f46; }
+    .badge-approved { background:#d1fae5; color:#065f46; }
+    .badge-completed{ background:#d1fae5; color:#065f46; }
+    .badge-processing{ background:#dbeafe; color:#1e40af; }
+    .badge-failed   { background:#fee2e2; color:#991b1b; }
+    .toast { animation: slideUp 0.3s ease; }
+    @keyframes slideUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    .modal-backdrop { animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+
+<!-- Toast -->
+<div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+<!-- Modal -->
+<div id="modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4">
+  <div class="modal-backdrop absolute inset-0 bg-black/50" onclick="closeModal()"></div>
+  <div id="modalInner" class="relative bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 z-10 max-h-[90vh] overflow-y-auto">
+    <h3 id="modalTitle" class="text-lg font-semibold text-gray-900 mb-4"></h3>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<!-- Header -->
+<header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-30">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+      <span class="text-white text-sm font-bold">A</span>
+    </div>
+    <div>
+      <h1 class="font-bold text-gray-900">Affiliate CMS</h1>
+      <p class="text-xs text-gray-500">Hệ thống quản lý affiliate</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <span class="text-xs text-gray-500">API:</span>
+    <code class="text-xs bg-gray-100 px-2 py-1 rounded text-indigo-600">localhost:5223</code>
+    <a href="shop.html" target="_blank"
+       class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors">
+      📱 Mở Shop (Mobile Mock) →
+    </a>
+  </div>
+</header>
+
+<!-- Navigation Tabs -->
+<nav class="bg-white border-b border-gray-200 px-6">
+  <div class="flex gap-6 overflow-x-auto">
+    <button onclick="switchTab('dashboard')" id="tab-dashboard"
+      class="py-3 text-sm font-medium text-gray-500 hover:text-gray-900 whitespace-nowrap border-b-2 border-transparent transition-colors tab-active">
+      📊 Dashboard
+    </button>
+    <button onclick="switchTab('partners')" id="tab-partners"
+      class="py-3 text-sm font-medium text-gray-500 hover:text-gray-900 whitespace-nowrap border-b-2 border-transparent transition-colors">
+      👥 Partners
+    </button>
+    <button onclick="switchTab('campaigns')" id="tab-campaigns"
+      class="py-3 text-sm font-medium text-gray-500 hover:text-gray-900 whitespace-nowrap border-b-2 border-transparent transition-colors">
+      📣 Campaigns
+    </button>
+    <button onclick="switchTab('links')" id="tab-links"
+      class="py-3 text-sm font-medium text-gray-500 hover:text-gray-900 whitespace-nowrap border-b-2 border-transparent transition-colors">
+      🔗 Affiliate Links
+    </button>
+    <button onclick="switchTab('conversions')" id="tab-conversions"
+      class="py-3 text-sm font-medium text-gray-500 hover:text-gray-900 whitespace-nowrap border-b-2 border-transparent transition-colors">
+      💰 Conversions
+    </button>
+    <button onclick="switchTab('settlements')" id="tab-settlements"
+      class="py-3 text-sm font-medium text-gray-500 hover:text-gray-900 whitespace-nowrap border-b-2 border-transparent transition-colors">
+      🏦 Settlements
+    </button>
+  </div>
+</nav>
+
+<!-- Content -->
+<main class="p-6">
+
+  <!-- ===== DASHBOARD ===== -->
+  <div id="page-dashboard">
+    <div class="mb-6">
+      <h2 class="text-xl font-bold text-gray-900">Dashboard</h2>
+      <p class="text-sm text-gray-500">Tổng quan hệ thống affiliate</p>
+    </div>
+    <div id="dashboardStats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <p class="text-sm text-gray-500 mb-1">Tổng Partners</p>
+        <p class="text-3xl font-bold text-gray-900" id="ds-partners">—</p>
+        <p class="text-xs text-green-600 mt-1" id="ds-partners-active">— active</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <p class="text-sm text-gray-500 mb-1">Campaigns</p>
+        <p class="text-3xl font-bold text-gray-900" id="ds-campaigns">—</p>
+        <p class="text-xs text-blue-600 mt-1" id="ds-campaigns-active">— active</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <p class="text-sm text-gray-500 mb-1">Conversions</p>
+        <p class="text-3xl font-bold text-indigo-600" id="ds-conversions">—</p>
+        <p class="text-xs text-amber-600 mt-1" id="ds-conversions-pending">— pending</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <p class="text-sm text-gray-500 mb-1">Hoa hồng (Approved)</p>
+        <p class="text-3xl font-bold text-green-600" id="ds-commission">—</p>
+        <p class="text-xs text-gray-500 mt-1">VNĐ</p>
+      </div>
+    </div>
+
+    <!-- Recent conversions table -->
+    <div class="bg-white rounded-xl border border-gray-200">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-semibold text-gray-900">Conversions gần đây</h3>
+        <button onclick="switchTab('conversions')" class="text-xs text-indigo-600 hover:underline">Xem tất cả →</button>
+      </div>
+      <div id="dashboardConversions" class="divide-y divide-gray-50"></div>
+    </div>
+  </div>
+
+  <!-- ===== PARTNERS ===== -->
+  <div id="page-partners" class="hidden">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Partners</h2>
+        <p class="text-sm text-gray-500">Quản lý affiliate partners</p>
+      </div>
+      <button onclick="openRegisterPartner()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium transition-colors">
+        + Đăng ký Partner
+      </button>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Doanh nghiệp</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Email</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">MST</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Ngày tạo</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="partnersTable" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CAMPAIGNS ===== -->
+  <div id="page-campaigns" class="hidden">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Campaigns</h2>
+        <p class="text-sm text-gray-500">Quản lý chiến dịch affiliate</p>
+      </div>
+      <button onclick="openCreateCampaign()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium transition-colors">
+        + Tạo Campaign
+      </button>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Tên</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Partner</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Hoa hồng</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Budget</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="campaignsTable" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== LINKS ===== -->
+  <div id="page-links" class="hidden">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Affiliate Links</h2>
+        <p class="text-sm text-gray-500">Tracking links — click để mô phỏng user nhấn link</p>
+      </div>
+      <button onclick="openCreateLink()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium transition-colors">
+        + Tạo Link
+      </button>
+    </div>
+
+    <!-- Info box: per-product no-cookie tracking -->
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+      <div class="flex gap-3">
+        <span class="text-blue-500 text-lg">🎯</span>
+        <div class="text-sm flex-1">
+          <p class="font-medium text-blue-900">Tracking per-product — Last-Click Attribution</p>
+          <p class="text-blue-700 mt-0.5">Mỗi link có thể nhắm vào <strong>1 sản phẩm cụ thể</strong>. Shop lưu <code class="bg-blue-100 px-1 rounded">aff_products</code> trong localStorage theo dạng <code class="bg-blue-100 px-1 rounded">&#123; "P001": &#123; clickId &#125;, "P002": &#123; clickId &#125; &#125;</code>. Nếu cùng 1 sản phẩm bị click 2 lần từ 2 partner khác nhau → <strong>click sau (last-click) được ghi nhận</strong>. Khi checkout, mỗi sản phẩm gửi 1 webhook riêng → nhiều conversion tương ứng.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Label</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Campaign</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Target Product</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Tracking URL</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Clicks / Cvs</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="linksTable" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CONVERSIONS ===== -->
+  <div id="page-conversions" class="hidden">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Conversions</h2>
+        <p class="text-sm text-gray-500">Quản lý đơn hàng được ghi nhận qua affiliate</p>
+      </div>
+      <button onclick="loadConversions()" class="border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm px-4 py-2 rounded-lg font-medium transition-colors">
+        🔄 Refresh
+      </button>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Mã đơn</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">User</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Giá trị</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Hoa hồng</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Tracking</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Ngày tạo</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="conversionsTable" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SETTLEMENTS ===== -->
+  <div id="page-settlements" class="hidden">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Settlements</h2>
+        <p class="text-sm text-gray-500">Thanh toán hoa hồng cho partners</p>
+      </div>
+      <button onclick="openGenerateSettlement()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium transition-colors">
+        + Tạo Settlement
+      </button>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Partner</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Kỳ thanh toán</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Conversions</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Gross</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Thuế (10%)</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Net</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+              <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="settlementsTable" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const API = 'http://localhost:5223';
+
+// Danh sách sản phẩm đồng bộ với shop.html
+const SHOP_PRODUCTS = [
+  { id: 'P001', name: 'Tai nghe Bluetooth Pro',   price: 890000,  icon: '🎧' },
+  { id: 'P002', name: 'Đồng hồ thông minh X5',    price: 1290000, icon: '⌚' },
+  { id: 'P003', name: 'Bàn phím cơ RGB',           price: 650000,  icon: '⌨️' },
+  { id: 'P004', name: 'Chuột gaming 16000DPI',     price: 480000,  icon: '🖱️' },
+  { id: 'P005', name: 'Loa mini không dây',        price: 320000,  icon: '🔊' },
+  { id: 'P006', name: 'Sạc dự phòng 20000mAh',    price: 450000,  icon: '🔋' },
+];
+
+// ============================================================
+// API helpers
+// ============================================================
+async function api(method, path, body) {
+  try {
+    const res = await fetch(API + path, {
+      method,
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : null;
+    if (!res.ok) throw new Error(data?.error || data?.title || `HTTP ${res.status}`);
+    return data;
+  } catch (e) {
+    throw e;
+  }
+}
+
+// ============================================================
+// Toast
+// ============================================================
+function toast(msg, type = 'success') {
+  const c = document.getElementById('toastContainer');
+  const div = document.createElement('div');
+  const colors = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-indigo-600', warning: 'bg-amber-500' };
+  div.className = `toast ${colors[type]} text-white text-sm px-4 py-3 rounded-lg shadow-lg max-w-xs`;
+  div.textContent = msg;
+  c.appendChild(div);
+  setTimeout(() => div.remove(), 3500);
+}
+
+// ============================================================
+// Modal
+// ============================================================
+function openModal(title, html, size = 'max-w-lg') {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalInner').className =
+    `relative bg-white rounded-xl shadow-2xl w-full ${size} p-6 z-10 max-h-[90vh] overflow-y-auto`;
+  document.getElementById('modal').classList.remove('hidden');
+}
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+}
+
+// ============================================================
+// Tabs
+// ============================================================
+const tabs = ['dashboard', 'partners', 'campaigns', 'links', 'conversions', 'settlements'];
+
+function switchTab(name) {
+  tabs.forEach(t => {
+    document.getElementById(`page-${t}`).classList.add('hidden');
+    const btn = document.getElementById(`tab-${t}`);
+    btn.classList.remove('tab-active');
+    btn.classList.add('text-gray-500', 'border-transparent');
+  });
+  document.getElementById(`page-${name}`).classList.remove('hidden');
+  const btn = document.getElementById(`tab-${name}`);
+  btn.classList.add('tab-active');
+  btn.classList.remove('text-gray-500', 'border-transparent');
+  loaders[name]?.();
+}
+
+const loaders = {
+  dashboard: loadDashboard,
+  partners: loadPartners,
+  campaigns: loadCampaigns,
+  links: loadLinks,
+  conversions: loadConversions,
+  settlements: loadSettlements,
+};
+
+// ============================================================
+// State cache
+// ============================================================
+let partners = [], campaigns = [], links = [], conversions = [], settlements = [];
+
+// ============================================================
+// Badge helper
+// ============================================================
+function badge(status) {
+  const s = (status || '').toLowerCase();
+  return `<span class="badge-${s} text-xs px-2 py-0.5 rounded-full font-medium capitalize">${status}</span>`;
+}
+
+function fmtDate(d) {
+  return d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+}
+
+function fmtMoney(n) {
+  return new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+async function loadDashboard() {
+  try {
+    const [p, c, cv] = await Promise.all([
+      api('GET', '/api/partners'),
+      api('GET', '/api/campaigns'),
+      api('GET', '/api/conversions'),
+    ]);
+    partners = p; campaigns = c; conversions = cv;
+
+    document.getElementById('ds-partners').textContent = p.length;
+    document.getElementById('ds-partners-active').textContent = p.filter(x => x.status === 'Active').length + ' active';
+    document.getElementById('ds-campaigns').textContent = c.length;
+    document.getElementById('ds-campaigns-active').textContent = c.filter(x => x.status === 'Active').length + ' active';
+    document.getElementById('ds-conversions').textContent = cv.length;
+    document.getElementById('ds-conversions-pending').textContent = cv.filter(x => x.status === 'Pending').length + ' pending';
+
+    const approved = cv.filter(x => x.status === 'Approved' || x.status === 'Settled');
+    const totalComm = approved.reduce((s, x) => s + x.commissionAmount, 0);
+    document.getElementById('ds-commission').textContent = fmtMoney(totalComm);
+
+    const recent = cv.slice(0, 8);
+    const tbody = document.getElementById('dashboardConversions');
+    if (!recent.length) {
+      tbody.innerHTML = '<p class="text-center text-gray-400 text-sm py-8">Chưa có conversion nào</p>';
+      return;
+    }
+    tbody.innerHTML = recent.map(cv => {
+      const partner = partners.find(p => p.id === cv.partnerId);
+      return `<div class="px-5 py-3 flex items-center justify-between hover:bg-gray-50">
+        <div>
+          <p class="font-medium text-gray-900">${cv.serviceTransactionId}</p>
+          <p class="text-xs text-gray-500">${cv.endUserId} · ${fmtDate(cv.createdAt)}</p>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-sm text-gray-700">${fmtMoney(cv.transactionAmount)} VNĐ</span>
+          <span class="text-sm font-medium text-green-600">+${fmtMoney(cv.commissionAmount)} VNĐ</span>
+          ${badge(cv.status)}
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    toast('Không thể kết nối API: ' + e.message, 'error');
+  }
+}
+
+// ============================================================
+// PARTNERS
+// ============================================================
+async function loadPartners() {
+  try {
+    partners = await api('GET', '/api/partners');
+    const tbody = document.getElementById('partnersTable');
+    if (!partners.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-gray-400 py-8">Chưa có partner nào</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = partners.map(p => `
+      <tr class="hover:bg-gray-50">
+        <td class="px-4 py-3">
+          <p class="font-medium text-gray-900">${p.businessName}</p>
+          <p class="text-xs text-gray-500">${p.phoneNumber}</p>
+        </td>
+        <td class="px-4 py-3 text-gray-600">${p.contactEmail}</td>
+        <td class="px-4 py-3 text-gray-600">${p.taxCode || '—'}</td>
+        <td class="px-4 py-3">${badge(p.status)}</td>
+        <td class="px-4 py-3 text-gray-500 text-xs">${fmtDate(p.createdAt)}</td>
+        <td class="px-4 py-3">
+          <div class="flex gap-2">
+            ${p.status === 'Pending' ? `
+              <button onclick="approvePartner('${p.id}')" class="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded">✓ Duyệt</button>
+              <button onclick="rejectPartner('${p.id}')" class="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded">✗ Từ chối</button>
+            ` : ''}
+            ${p.status === 'Active' ? `
+              <button onclick="suspendPartner('${p.id}')" class="text-xs bg-amber-500 hover:bg-amber-600 text-white px-2 py-1 rounded">⏸ Tạm dừng</button>
+            ` : ''}
+            <button onclick="viewPartnerDashboard('${p.id}', '${p.businessName}')" class="text-xs border border-gray-300 hover:bg-gray-100 px-2 py-1 rounded">📊</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    toast('Lỗi tải partners: ' + e.message, 'error');
+  }
+}
+
+function openRegisterPartner() {
+  openModal('Đăng ký Partner mới', `
+    <form onsubmit="submitRegisterPartner(event)" class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-gray-700 mb-1">Tên doanh nghiệp *</label>
+          <input name="businessName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Email *</label>
+          <input name="contactEmail" type="email" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Số điện thoại *</label>
+          <input name="phoneNumber" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Mã số thuế</label>
+          <input name="taxCode" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Ngân hàng</label>
+          <input name="bankName" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Số tài khoản</label>
+          <input name="bankAccountNumber" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Chủ tài khoản</label>
+          <input name="bankAccountHolder" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium">Đăng ký</button>
+        <button type="button" onclick="closeModal()" class="flex-1 border border-gray-300 hover:bg-gray-50 py-2 rounded-lg text-sm">Hủy</button>
+      </div>
+    </form>
+  `);
+}
+
+async function submitRegisterPartner(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  try {
+    await api('POST', '/api/partners/register', Object.fromEntries(f));
+    toast('Đăng ký partner thành công!');
+    closeModal();
+    loadPartners();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function approvePartner(id) {
+  try {
+    await api('POST', `/api/partners/${id}/approve`);
+    toast('Partner đã được duyệt');
+    loadPartners();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function rejectPartner(id) {
+  const reason = prompt('Lý do từ chối:');
+  if (!reason) return;
+  try {
+    await api('POST', `/api/partners/${id}/reject`, { reason });
+    toast('Partner đã bị từ chối');
+    loadPartners();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function suspendPartner(id) {
+  if (!confirm('Tạm dừng partner này?')) return;
+  try {
+    await api('POST', `/api/partners/${id}/suspend`);
+    toast('Partner đã bị tạm dừng');
+    loadPartners();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function viewPartnerDashboard(id, name) {
+  try {
+    const d = await api('GET', `/api/partners/${id}/dashboard`);
+    openModal(`Dashboard: ${name}`, `
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="bg-gray-50 rounded-lg p-3 text-center">
+          <p class="text-2xl font-bold text-gray-900">${d.totalCampaigns}</p>
+          <p class="text-xs text-gray-500">Campaigns (${d.activeCampaigns} active)</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-3 text-center">
+          <p class="text-2xl font-bold text-blue-600">${d.totalClicks}</p>
+          <p class="text-xs text-gray-500">Tổng clicks</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-3 text-center">
+          <p class="text-2xl font-bold text-indigo-600">${d.totalConversions}</p>
+          <p class="text-xs text-gray-500">Conversions (${d.pendingConversions} pending)</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-3 text-center">
+          <p class="text-2xl font-bold text-green-600">${fmtMoney(d.totalCommissionEarned)}</p>
+          <p class="text-xs text-gray-500">Hoa hồng VNĐ</p>
+        </div>
+      </div>
+      <div class="bg-indigo-50 rounded-lg p-3 flex justify-between text-sm">
+        <span class="text-gray-600">Hoa hồng chờ duyệt:</span>
+        <span class="font-medium text-amber-600">${fmtMoney(d.pendingCommission)} VNĐ</span>
+      </div>
+    `);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ============================================================
+// CAMPAIGNS
+// ============================================================
+async function loadCampaigns() {
+  try {
+    [campaigns, partners] = await Promise.all([
+      api('GET', '/api/campaigns'),
+      api('GET', '/api/partners'),
+    ]);
+    const tbody = document.getElementById('campaignsTable');
+    if (!campaigns.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-gray-400 py-8">Chưa có campaign nào</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = campaigns.map(c => {
+      const partner = partners.find(p => p.id === c.partnerId);
+      const commLabel = c.commissionType === 'PercentageOfOrder'
+        ? `${c.commissionValue}%` : `${fmtMoney(c.commissionValue)} VNĐ/cvs`;
+      return `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3">
+            <p class="font-medium text-gray-900">${c.name}</p>
+            <p class="text-xs text-gray-500">${c.serviceType}</p>
+          </td>
+          <td class="px-4 py-3 text-gray-600 text-xs">${partner?.businessName || c.partnerId.slice(0,8)}</td>
+          <td class="px-4 py-3 text-gray-700 font-mono text-xs">${commLabel}</td>
+          <td class="px-4 py-3 text-xs text-gray-600">
+            ${c.maxBudget ? fmtMoney(c.spentBudget) + ' / ' + fmtMoney(c.maxBudget) + ' VNĐ' : '∞'}
+          </td>
+          <td class="px-4 py-3">${badge(c.status)}</td>
+          <td class="px-4 py-3">
+            <div class="flex gap-2">
+              ${c.status === 'Draft' || c.status === 'Paused' ? `<button onclick="activateCampaign('${c.id}')" class="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded">▶ Active</button>` : ''}
+              ${c.status === 'Active' ? `<button onclick="pauseCampaign('${c.id}')" class="text-xs bg-amber-500 hover:bg-amber-600 text-white px-2 py-1 rounded">⏸ Pause</button>` : ''}
+              <button onclick="viewCampaignLinks('${c.id}', '${c.name}')" class="text-xs border border-gray-300 hover:bg-gray-100 px-2 py-1 rounded">🔗 Links</button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  } catch (e) {
+    toast('Lỗi tải campaigns: ' + e.message, 'error');
+  }
+}
+
+function openCreateCampaign() {
+  const activePartners = partners.filter(p => p.status === 'Active');
+  if (!activePartners.length) {
+    toast('Cần có ít nhất 1 partner Active để tạo campaign', 'warning');
+    return;
+  }
+  openModal('Tạo Campaign mới', `
+    <form onsubmit="submitCreateCampaign(event)" class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Partner *</label>
+        <select name="partnerId" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          ${activePartners.map(p => `<option value="${p.id}">${p.businessName}</option>`).join('')}
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-gray-700 mb-1">Tên campaign *</label>
+          <input name="name" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-gray-700 mb-1">Mô tả</label>
+          <input name="description" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Loại dịch vụ</label>
+          <select name="serviceType" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="ecommerce">E-commerce</option>
+            <option value="food_delivery">Food Delivery</option>
+            <option value="fintech">Fintech</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Kiểu hoa hồng</label>
+          <select name="commissionType" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="0">% Đơn hàng</option>
+            <option value="1">Cố định / đơn</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Giá trị hoa hồng *</label>
+          <input name="commissionValue" type="number" step="0.01" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="10 hoặc 50000" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Budget tối đa (VNĐ)</label>
+          <input name="maxBudget" type="number" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Để trống = không giới hạn" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Ngày bắt đầu *</label>
+          <input name="startDate" type="date" required value="${new Date().toISOString().slice(0,10)}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Ngày kết thúc</label>
+          <input name="endDate" type="date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium">Tạo Campaign</button>
+        <button type="button" onclick="closeModal()" class="flex-1 border border-gray-300 hover:bg-gray-50 py-2 rounded-lg text-sm">Hủy</button>
+      </div>
+    </form>
+  `);
+}
+
+async function submitCreateCampaign(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const data = Object.fromEntries(f);
+  data.commissionType = parseInt(data.commissionType);
+  data.commissionValue = parseFloat(data.commissionValue);
+  if (data.maxBudget) data.maxBudget = parseFloat(data.maxBudget);
+  else delete data.maxBudget;
+  if (!data.endDate) delete data.endDate;
+  try {
+    await api('POST', '/api/campaigns/', data);
+    toast('Tạo campaign thành công!');
+    closeModal();
+    loadCampaigns();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function activateCampaign(id) {
+  try {
+    await api('POST', `/api/campaigns/${id}/activate`);
+    toast('Campaign đã được kích hoạt');
+    loadCampaigns();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function pauseCampaign(id) {
+  try {
+    await api('POST', `/api/campaigns/${id}/pause`);
+    toast('Campaign đã bị tạm dừng');
+    loadCampaigns();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function viewCampaignLinks(campaignId, campaignName) {
+  switchTab('links');
+  loadLinksForCampaign(campaignId, campaignName);
+}
+
+// ============================================================
+// LINKS
+// ============================================================
+let currentLinksFilter = null;
+
+async function loadLinks() {
+  currentLinksFilter = null;
+  await loadAllLinks();
+}
+
+async function loadAllLinks() {
+  try {
+    if (!campaigns.length) campaigns = await api('GET', '/api/campaigns');
+    if (!partners.length) partners = await api('GET', '/api/partners');
+
+    // Load links for all active campaigns
+    const allLinks = [];
+    await Promise.all(campaigns.map(async c => {
+      try {
+        const ls = await api('GET', `/api/campaigns/${c.id}/links`);
+        ls.forEach(l => { l._campaignName = c.name; l._partnerId = c.partnerId; });
+        allLinks.push(...ls);
+      } catch {}
+    }));
+    links = allLinks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    renderLinksTable(links);
+  } catch (e) {
+    toast('Lỗi tải links: ' + e.message, 'error');
+  }
+}
+
+async function loadLinksForCampaign(campaignId, campaignName) {
+  try {
+    if (!campaigns.length) campaigns = await api('GET', '/api/campaigns');
+    if (!partners.length) partners = await api('GET', '/api/partners');
+    const ls = await api('GET', `/api/campaigns/${campaignId}/links`);
+    ls.forEach(l => { l._campaignName = campaignName; });
+    links = ls;
+    currentLinksFilter = campaignId;
+    renderLinksTable(ls);
+  } catch (e) {
+    toast('Lỗi tải links: ' + e.message, 'error');
+  }
+}
+
+function getProductFromUrl(targetUrl) {
+  try {
+    const u = new URL(targetUrl);
+    const pid = u.searchParams.get('product');
+    if (!pid) return null;
+    return SHOP_PRODUCTS.find(p => p.id === pid) || null;
+  } catch { return null; }
+}
+
+function renderLinksTable(ls) {
+  const tbody = document.getElementById('linksTable');
+  if (!ls.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-gray-400 py-8">Chưa có link nào</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = ls.map(l => {
+    const product = getProductFromUrl(l.targetUrl);
+    const productCell = product
+      ? `<div class="flex items-center gap-1.5"><span>${product.icon}</span><div><p class="text-xs font-medium text-gray-800">${product.name}</p><p class="text-[10px] text-indigo-500 font-mono">${product.id}</p></div></div>`
+      : `<span class="text-xs text-gray-400">🛍️ Toàn bộ shop</span>`;
+    return `
+    <tr class="hover:bg-gray-50">
+      <td class="px-4 py-3">
+        <p class="font-medium text-gray-900">${l.label}</p>
+        <p class="text-xs font-mono text-indigo-600">${l.trackingCode}</p>
+      </td>
+      <td class="px-4 py-3 text-sm text-gray-600">${l._campaignName || l.campaignId.slice(0,8)}</td>
+      <td class="px-4 py-3">${productCell}</td>
+      <td class="px-4 py-3">
+        <div class="flex items-center gap-2">
+          <code class="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded max-w-48 truncate block">${l.trackingUrl}</code>
+          <button onclick="copyText('${l.trackingUrl}')" class="text-gray-400 hover:text-gray-700 text-xs" title="Copy">📋</button>
+        </div>
+      </td>
+      <td class="px-4 py-3 text-sm text-gray-600">${l.totalClicks} / ${l.totalConversions}</td>
+      <td class="px-4 py-3">${l.isActive ? badge('Active') : badge('Inactive')}</td>
+      <td class="px-4 py-3">
+        <div class="flex gap-2">
+          <button onclick="simulateClick('${l.trackingUrl}', '${l.trackingCode}')"
+            class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded font-medium">
+            📲 Mô phỏng Click
+          </button>
+          ${l.isActive ? `<button onclick="deactivateLink('${l.id}')" class="text-xs border border-gray-300 hover:bg-gray-100 px-2 py-1 rounded text-gray-600">Tắt</button>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function updateLinkTargetUrl(productId) {
+  const base = 'http://localhost:8081/shop.html';
+  document.getElementById('linkTargetUrl').value = productId === 'ALL'
+    ? base : `${base}?product=${productId}`;
+  const product = SHOP_PRODUCTS.find(p => p.id === productId);
+  document.getElementById('linkLabel').value = product
+    ? `${product.icon} ${product.name}` : '🛍️ Shop — Toàn bộ';
+}
+
+function openCreateLink() {
+  const activeCampaigns = campaigns.filter(c => c.status === 'Active');
+  if (!activeCampaigns.length) {
+    toast('Cần có campaign Active để tạo link. Vào tab Campaigns để kích hoạt.', 'warning');
+    return;
+  }
+  openModal('Tạo Affiliate Link', `
+    <form onsubmit="submitCreateLink(event)" class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Campaign *</label>
+        <select name="campaignId" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          ${activeCampaigns.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Target sản phẩm</label>
+        <select id="linkProductSel" onchange="updateLinkTargetUrl(this.value)"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="ALL">🛍️ Toàn bộ shop (không chỉ định sản phẩm)</option>
+          ${SHOP_PRODUCTS.map(p => `<option value="${p.id}">${p.icon} ${p.name} — ${fmtMoney(p.price)} VNĐ</option>`).join('')}
+        </select>
+        <p class="text-xs text-blue-600 mt-1">⚡ Last-Click Attribution: cùng sản phẩm click 2 lần → partner cuối cùng được ghi nhận</p>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Target URL *</label>
+        <input name="targetUrl" id="linkTargetUrl" required value="http://localhost:8081/shop.html"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Label</label>
+        <input name="label" id="linkLabel" value="🛍️ Shop — Toàn bộ"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium">Tạo Link</button>
+        <button type="button" onclick="closeModal()" class="flex-1 border border-gray-300 hover:bg-gray-50 py-2 rounded-lg text-sm">Hủy</button>
+      </div>
+    </form>
+  `);
+}
+
+async function submitCreateLink(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const data = Object.fromEntries(f);
+  const campaignId = data.campaignId;
+  delete data.campaignId;
+  try {
+    await api('POST', `/api/campaigns/${campaignId}/links`, data);
+    toast('Tạo affiliate link thành công!');
+    closeModal();
+    loadAllLinks();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function simulateClick(trackingUrl, trackingCode) {
+  toast(`📲 Đang mô phỏng user click link [${trackingCode}]...`, 'info');
+  window.open(trackingUrl, '_blank');
+}
+
+async function deactivateLink(id) {
+  if (!confirm('Vô hiệu hóa link này?')) return;
+  try {
+    await api('DELETE', `/api/links/${id}`);
+    toast('Link đã bị vô hiệu hóa');
+    loadAllLinks();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => toast('Đã copy!', 'info'));
+}
+
+// ============================================================
+// CONVERSIONS
+// ============================================================
+async function loadConversions() {
+  try {
+    [conversions, partners] = await Promise.all([
+      api('GET', '/api/conversions'),
+      api('GET', '/api/partners'),
+    ]);
+    const tbody = document.getElementById('conversionsTable');
+    if (!conversions.length) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-gray-400 py-8">Chưa có conversion nào. Thực hiện mua hàng qua Shop để tạo conversion.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = conversions.map(cv => {
+      const partner = partners.find(p => p.id === cv.partnerId);
+      return `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3">
+            <p class="font-mono text-xs text-gray-900">${cv.serviceTransactionId}</p>
+          </td>
+          <td class="px-4 py-3 text-xs text-gray-600">${cv.endUserId}</td>
+          <td class="px-4 py-3 font-medium text-gray-900">${fmtMoney(cv.transactionAmount)}</td>
+          <td class="px-4 py-3 font-medium text-green-600">+${fmtMoney(cv.commissionAmount)}</td>
+          <td class="px-4 py-3">
+            <div class="text-xs">
+              <p class="font-mono text-indigo-600">${cv.trackingCode}</p>
+              <p class="text-gray-400">${cv.clickId ? 'click_id: ' + cv.clickId.slice(0,8) + '...' : 'no click_id'}</p>
+            </div>
+          </td>
+          <td class="px-4 py-3">${badge(cv.status)}</td>
+          <td class="px-4 py-3 text-xs text-gray-500">${fmtDate(cv.createdAt)}</td>
+          <td class="px-4 py-3">
+            <div class="flex gap-1">
+              ${cv.status === 'Pending' ? `
+                <button onclick="approveConversion('${cv.id}')" class="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded">✓</button>
+                <button onclick="rejectConversion('${cv.id}')" class="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded">✗</button>
+              ` : '—'}
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  } catch (e) {
+    toast('Lỗi tải conversions: ' + e.message, 'error');
+  }
+}
+
+async function approveConversion(id) {
+  try {
+    await api('POST', `/api/conversions/${id}/approve`);
+    toast('Conversion đã được duyệt');
+    loadConversions();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function rejectConversion(id) {
+  const reason = prompt('Lý do từ chối:');
+  if (!reason) return;
+  try {
+    await api('POST', `/api/conversions/${id}/reject`, { reason });
+    toast('Conversion đã bị từ chối');
+    loadConversions();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ============================================================
+// SETTLEMENTS
+// ============================================================
+async function loadSettlements() {
+  try {
+    [settlements, partners] = await Promise.all([
+      api('GET', '/api/settlements'),
+      api('GET', '/api/partners'),
+    ]);
+    const tbody = document.getElementById('settlementsTable');
+    if (!settlements.length) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-gray-400 py-8">Chưa có settlement. Duyệt conversions rồi tạo settlement.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = settlements.map(s => {
+      const partner = partners.find(p => p.id === s.partnerId);
+      return `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 font-medium text-gray-900">${partner?.businessName || s.partnerId.slice(0,8)}</td>
+          <td class="px-4 py-3 text-xs text-gray-600">${fmtDate(s.periodStart)} → ${fmtDate(s.periodEnd)}</td>
+          <td class="px-4 py-3 text-center text-gray-700">${s.totalConversions}</td>
+          <td class="px-4 py-3 text-gray-700">${fmtMoney(s.grossCommission)}</td>
+          <td class="px-4 py-3 text-red-600">-${fmtMoney(s.taxAmount)}</td>
+          <td class="px-4 py-3 font-bold text-green-600">${fmtMoney(s.netCommission)}</td>
+          <td class="px-4 py-3">${badge(s.status)}</td>
+          <td class="px-4 py-3">
+            ${s.status === 'Pending' || s.status === 'Processing' ? `
+              <button onclick="processSettlement('${s.id}')" class="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded">💸 Xác nhận TT</button>
+            ` : s.paymentReference ? `<span class="text-xs text-gray-500 font-mono">${s.paymentReference}</span>` : '—'}
+          </td>
+        </tr>`;
+    }).join('');
+  } catch (e) {
+    toast('Lỗi tải settlements: ' + e.message, 'error');
+  }
+}
+
+async function openGenerateSettlement() {
+  // Load approved, unsettled conversions
+  let pending = [];
+  try {
+    const all = await api('GET', '/api/conversions');
+    if (!partners.length) partners = await api('GET', '/api/partners');
+    pending = all.filter(c => c.status === 'Approved' && !c.settlementId);
+  } catch (e) {
+    toast('Không thể tải conversions: ' + e.message, 'error');
+    return;
+  }
+
+  if (!pending.length) {
+    toast('Không có conversion nào đã Approved và chưa được settle.', 'warning');
+    return;
+  }
+
+  // Group by partner for display
+  const byPartner = {};
+  pending.forEach(c => {
+    if (!byPartner[c.partnerId]) byPartner[c.partnerId] = [];
+    byPartner[c.partnerId].push(c);
+  });
+
+  const partnerGroups = Object.entries(byPartner).map(([pid, cvs]) => {
+    const partner = partners.find(p => p.id === pid);
+    return { pid, name: partner?.businessName || pid.slice(0, 8), cvs };
+  });
+
+  const listHtml = partnerGroups.map(({ pid, name, cvs }) => `
+    <div class="mb-3">
+      <div class="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-t-lg border border-gray-200">
+        <label class="flex items-center gap-2 cursor-pointer font-medium text-sm text-gray-800">
+          <input type="checkbox" class="partner-chk rounded" data-partner="${pid}"
+            onchange="togglePartnerConversions('${pid}', this.checked)" />
+          ${name}
+        </label>
+        <span class="text-xs text-gray-500">${cvs.length} conversion · ${fmtMoney(cvs.reduce((s,c)=>s+c.commissionAmount,0))} VNĐ</span>
+      </div>
+      <div class="border border-t-0 border-gray-200 rounded-b-lg divide-y divide-gray-100">
+        ${cvs.map(c => `
+          <label class="flex items-center gap-3 px-3 py-2 hover:bg-indigo-50 cursor-pointer">
+            <input type="checkbox" class="conv-chk rounded" value="${c.id}" data-partner="${pid}"
+              data-commission="${c.commissionAmount}" onchange="recalcSettlementTotals()" />
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-mono text-gray-700 truncate">${c.serviceTransactionId}</p>
+              <p class="text-[10px] text-gray-400">${c.endUserId} · ${fmtDate(c.approvedAt)}</p>
+            </div>
+            <div class="text-right shrink-0">
+              <p class="text-xs text-gray-700">${fmtMoney(c.transactionAmount)} VNĐ</p>
+              <p class="text-xs font-medium text-green-600">+${fmtMoney(c.commissionAmount)} VNĐ</p>
+            </div>
+          </label>`).join('')}
+      </div>
+    </div>`).join('');
+
+  openModal('Tạo Settlement', `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <p class="text-xs text-gray-500">Chọn các conversion muốn đưa vào settlement</p>
+        <button type="button" onclick="selectAllConversions(true)"
+          class="text-xs text-indigo-600 hover:underline">Chọn tất cả</button>
+      </div>
+
+      <div class="max-h-72 overflow-y-auto pr-1 space-y-0">${listHtml}</div>
+
+      <!-- Summary + tax -->
+      <div class="bg-indigo-50 border border-indigo-100 rounded-lg px-4 py-3 space-y-1.5">
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-600">Đã chọn:</span>
+          <span id="stlSelectedCount" class="font-medium text-gray-900">0 conversions</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-600">Gross commission:</span>
+          <span id="stlGross" class="font-medium text-gray-900">0 VNĐ</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <label class="text-gray-600">Thuế suất:</label>
+          <div class="flex items-center gap-2">
+            <input id="stlTaxRate" type="number" step="0.01" min="0" max="1" value="0.10"
+              onchange="recalcSettlementTotals()"
+              class="w-20 border border-gray-300 rounded px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+            <span class="text-xs text-gray-400">( × gross )</span>
+          </div>
+        </div>
+        <div class="flex justify-between text-sm border-t border-indigo-200 pt-1.5">
+          <span class="text-gray-600">Thuế:</span>
+          <span id="stlTax" class="text-red-600">-0 VNĐ</span>
+        </div>
+        <div class="flex justify-between text-sm font-bold">
+          <span class="text-gray-800">Net (thực nhận):</span>
+          <span id="stlNet" class="text-green-600">0 VNĐ</span>
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="submitGenerateSettlement()"
+          class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium">
+          Tạo Settlement
+        </button>
+        <button type="button" onclick="closeModal()"
+          class="flex-1 border border-gray-300 hover:bg-gray-50 py-2 rounded-lg text-sm">
+          Hủy
+        </button>
+      </div>
+    </div>
+  `, 'max-w-2xl');
+}
+
+function togglePartnerConversions(partnerId, checked) {
+  document.querySelectorAll(`.conv-chk[data-partner="${partnerId}"]`)
+    .forEach(cb => { cb.checked = checked; });
+  recalcSettlementTotals();
+}
+
+function selectAllConversions(checked) {
+  document.querySelectorAll('.conv-chk').forEach(cb => { cb.checked = checked; });
+  document.querySelectorAll('.partner-chk').forEach(cb => { cb.checked = checked; });
+  recalcSettlementTotals();
+}
+
+function recalcSettlementTotals() {
+  const checked = [...document.querySelectorAll('.conv-chk:checked')];
+  const gross = checked.reduce((s, cb) => s + parseFloat(cb.dataset.commission || 0), 0);
+  const taxRate = parseFloat(document.getElementById('stlTaxRate')?.value || 0.1);
+  const tax = Math.round(gross * taxRate * 100) / 100;
+  const net = gross - tax;
+
+  document.getElementById('stlSelectedCount').textContent = `${checked.length} conversion`;
+  document.getElementById('stlGross').textContent = fmtMoney(gross) + ' VNĐ';
+  document.getElementById('stlTax').textContent = '-' + fmtMoney(tax) + ' VNĐ';
+  document.getElementById('stlNet').textContent = fmtMoney(net) + ' VNĐ';
+
+  // Sync partner checkboxes
+  document.querySelectorAll('.partner-chk').forEach(partnerCb => {
+    const pid = partnerCb.dataset.partner;
+    const all = [...document.querySelectorAll(`.conv-chk[data-partner="${pid}"]`)];
+    const anyChecked = all.some(cb => cb.checked);
+    const allChecked = all.every(cb => cb.checked);
+    partnerCb.checked = allChecked;
+    partnerCb.indeterminate = anyChecked && !allChecked;
+  });
+}
+
+async function submitGenerateSettlement() {
+  const checked = [...document.querySelectorAll('.conv-chk:checked')];
+  if (!checked.length) {
+    toast('Vui lòng chọn ít nhất một conversion.', 'warning');
+    return;
+  }
+  const conversionIds = checked.map(cb => cb.value);
+  const taxRate = parseFloat(document.getElementById('stlTaxRate')?.value || 0.1);
+  try {
+    const result = await api('POST', '/api/settlements/generate', { conversionIds, taxRate });
+    toast(`Tạo ${result.length} settlement thành công!`);
+    closeModal();
+    loadSettlements();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function processSettlement(id) {
+  const ref = prompt('Mã tham chiếu thanh toán (vd: TT-2025-001):');
+  if (!ref) return;
+  const note = prompt('Ghi chú (tùy chọn):') || '';
+  try {
+    await api('POST', `/api/settlements/${id}/process`, { paymentReference: ref, note });
+    toast('Settlement đã được xác nhận thanh toán!');
+    loadSettlements();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ============================================================
+// Init
+// ============================================================
+loadDashboard();
+</script>
+</body>
+</html>

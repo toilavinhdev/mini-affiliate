@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>ShopApp — Mobile Mock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #f1f5f9; }
+    .phone-wrap { max-width: 430px; margin: 0 auto; min-height: 100vh; background: #fff; position: relative; }
+    .product-card { transition: transform 0.15s; cursor: pointer; }
+    .product-card:active { transform: scale(0.97); }
+    .slide-up { animation: slideUp 0.35s cubic-bezier(.16,1,.3,1); }
+    @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .toast-shop { animation: toastIn 0.3s ease; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    .aff-badge { animation: badgePop 0.3s cubic-bezier(.16,1,.3,1); }
+    @keyframes badgePop { from { transform:scale(0); opacity:0; } to { transform:scale(1); opacity:1; } }
+    .pulse { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .overlay { background: rgba(0,0,0,.5); }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+  </style>
+</head>
+<body>
+<div class="phone-wrap shadow-2xl">
+
+  <!-- APP BAR -->
+  <div class="bg-white border-b border-gray-100 sticky top-0 z-20">
+    <div class="flex items-center justify-between px-4 py-3">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
+          <span class="text-white text-xs font-bold">S</span>
+        </div>
+        <span class="font-bold text-gray-900 text-sm">ShopApp</span>
+        <span class="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">No-Cookie</span>
+      </div>
+      <button onclick="openCart()" class="relative p-2">
+        <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+        </svg>
+        <span id="cartBadge" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5"></span>
+      </button>
+    </div>
+
+    <!-- Cookie-off + tracking summary bar -->
+    <div class="px-4 pb-2 flex items-center justify-between">
+      <div class="flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-red-400 pulse"></span>
+        <span class="text-[10px] text-red-600 font-medium">🚫 Cookie OFF</span>
+        <span class="text-[10px] text-gray-400">— tracking via localStorage</span>
+      </div>
+      <button onclick="openDebug()" class="text-[10px] text-indigo-500 font-medium">Debug ›</button>
+    </div>
+  </div>
+
+  <!-- AFFILIATE TRACKING SUMMARY BAR -->
+  <div id="affSummaryBar" class="hidden bg-green-50 border-b border-green-100 px-4 py-2">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-medium text-green-800">🎯 Affiliate tracking active</p>
+      <button onclick="openDebug()" class="text-[10px] text-green-600 underline">xem chi tiết</button>
+    </div>
+    <div id="affSummaryTags" class="flex flex-wrap gap-1 mt-1"></div>
+  </div>
+
+  <!-- SHOP SCREEN -->
+  <div id="screenShop" class="pb-24">
+    <!-- Hero -->
+    <div class="mx-4 my-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-4 text-white">
+      <p class="text-xs font-medium opacity-80">Flash Sale hôm nay</p>
+      <p class="text-lg font-bold mt-0.5">Giảm đến 40%</p>
+      <p class="text-xs opacity-70 mt-1">Nhấn vào sản phẩm để thêm vào giỏ</p>
+    </div>
+
+    <!-- Products -->
+    <div class="px-4 mb-3">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-sm font-bold text-gray-900">Sản phẩm</p>
+        <span id="affActiveCount" class="hidden text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium"></span>
+      </div>
+      <div class="grid grid-cols-2 gap-3" id="productGrid"></div>
+    </div>
+  </div>
+
+  <!-- ORDER SUCCESS SCREEN -->
+  <div id="screenSuccess" class="hidden px-4 py-8">
+    <div class="text-center mb-6">
+      <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <span class="text-4xl">✅</span>
+      </div>
+      <h2 class="text-xl font-bold text-gray-900">Đặt hàng thành công!</h2>
+      <p class="text-gray-500 text-sm mt-1" id="successOrderId"></p>
+    </div>
+
+    <!-- Per-product conversion results -->
+    <div id="successConversions" class="space-y-3 mb-6"></div>
+
+    <div class="space-y-2">
+      <button onclick="goBackToShop()"
+        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-2xl font-medium text-sm transition-colors">
+        Tiếp tục mua sắm
+      </button>
+      <a href="cms.html"
+        class="block w-full border border-gray-300 py-3 rounded-2xl text-sm text-gray-700 text-center hover:bg-gray-50 transition-colors">
+        Xem Conversions trong CMS →
+      </a>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white border-t border-gray-200 px-6 py-3 flex justify-around z-10">
+    <button class="flex flex-col items-center gap-0.5 text-indigo-600">
+      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+      </svg>
+      <span class="text-[10px] font-medium">Home</span>
+    </button>
+    <button class="flex flex-col items-center gap-0.5 text-gray-400" onclick="openCart()">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+      </svg>
+      <span class="text-[10px]">Giỏ hàng</span>
+    </button>
+    <button class="flex flex-col items-center gap-0.5 text-gray-400" onclick="openDebug()">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+      </svg>
+      <span class="text-[10px]">Debug</span>
+    </button>
+  </div>
+</div>
+
+<!-- CART DRAWER -->
+<div id="cartOverlay" class="hidden fixed inset-0 z-30 overlay" onclick="closeCart()"></div>
+<div id="cartDrawer" class="hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white rounded-t-3xl z-40 slide-up">
+  <div class="px-4 pt-4 pb-2 flex items-center justify-between border-b border-gray-100">
+    <h3 class="font-bold text-gray-900">Giỏ hàng</h3>
+    <button onclick="closeCart()" class="text-gray-400 hover:text-gray-700 text-lg">✕</button>
+  </div>
+  <div id="cartItems" class="px-4 py-3 space-y-3 max-h-72 overflow-y-auto"></div>
+  <div class="px-4 py-3 border-t border-gray-100">
+    <div class="flex justify-between text-sm mb-3">
+      <span class="text-gray-600">Tổng tiền:</span>
+      <span class="font-bold text-gray-900" id="cartTotal">0 VNĐ</span>
+    </div>
+    <button onclick="proceedCheckout()"
+      class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-2xl font-bold text-sm transition-colors">
+      Thanh toán →
+    </button>
+  </div>
+</div>
+
+<!-- CHECKOUT MODAL -->
+<div id="checkoutOverlay" class="hidden fixed inset-0 z-40 overlay flex items-end">
+  <div class="w-full max-w-[430px] mx-auto bg-white rounded-t-3xl p-5 slide-up max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-gray-900">Thanh toán</h3>
+      <button onclick="closeCheckout()" class="text-gray-400 text-lg">✕</button>
+    </div>
+
+    <!-- Attribution preview (per-product) -->
+    <div id="checkoutAttribution" class="mb-4 bg-blue-50 border border-blue-100 rounded-xl p-3">
+      <p class="text-xs font-semibold text-blue-900 mb-2">📊 Affiliate Attribution</p>
+      <div id="checkoutAttrItems" class="space-y-1.5"></div>
+    </div>
+
+    <form onsubmit="placeOrder(event)" class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Họ tên *</label>
+        <input id="ckName" required placeholder="Nguyễn Văn A"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Email *</label>
+        <input id="ckEmail" type="email" required value="user@shopapp.vn" placeholder="user@example.com"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+      </div>
+      <div class="bg-gray-50 rounded-xl p-3">
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-gray-600">Tổng:</span>
+          <span class="font-bold" id="ckTotal"></span>
+        </div>
+        <div class="text-xs text-gray-500" id="ckItems"></div>
+      </div>
+      <button type="submit" id="placeOrderBtn"
+        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-2xl font-bold text-sm transition-colors">
+        🛒 Đặt hàng ngay
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- DEBUG PANEL -->
+<div id="debugOverlay" class="hidden fixed inset-0 z-40 overlay" onclick="closeDebug()"></div>
+<div id="debugPanel" class="hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-slate-900 text-green-400 rounded-t-3xl z-50 p-5 slide-up max-h-[80vh] overflow-y-auto">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="font-mono text-sm text-white">🔍 Storage Inspector</h3>
+    <button onclick="closeDebug()" class="text-slate-500 hover:text-white text-lg">✕</button>
+  </div>
+
+  <div class="mb-3">
+    <p class="text-xs text-slate-400 mb-1">🍪 document.cookie (App không đọc):</p>
+    <div class="bg-slate-800 rounded-lg p-2 text-[11px] text-slate-500 italic" id="dbgCookie"></div>
+  </div>
+
+  <div class="mb-3">
+    <p class="text-xs text-slate-400 mb-1">📦 aff_products (localStorage) — per-product tracking:</p>
+    <div class="bg-slate-800 rounded-lg p-2 space-y-1.5" id="dbgProducts"></div>
+  </div>
+
+  <div class="mb-3">
+    <p class="text-xs text-slate-400 mb-1">⚡ Last-Click Attribution logic:</p>
+    <div class="bg-slate-800 rounded-lg p-2 text-[11px] text-cyan-400">
+      Cùng sản phẩm → click sau ghi đè click trước → partner cuối được ghi nhận.<br/>
+      Khác sản phẩm → lưu độc lập, mỗi cái gửi 1 webhook riêng khi mua.
+    </div>
+  </div>
+
+  <div class="mb-4">
+    <p class="text-xs text-slate-400 mb-1">📡 Webhooks sẽ gửi khi checkout:</p>
+    <div class="bg-slate-800 rounded-lg p-2 space-y-1" id="dbgWebhooks"></div>
+  </div>
+
+  <button onclick="clearAffStorage()"
+    class="w-full border border-slate-600 hover:bg-slate-800 text-slate-300 text-xs py-2 rounded-lg">
+    🗑️ Xóa toàn bộ aff_products
+  </button>
+</div>
+
+<!-- Toast -->
+<div id="shopToast" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 max-w-[380px] w-full px-4">
+  <div id="shopToastInner" class="toast-shop bg-gray-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg text-center"></div>
+</div>
+
+<script>
+const API = 'http://localhost:5223';
+
+// ============================================================
+// Products (đồng bộ với cms.html SHOP_PRODUCTS)
+// ============================================================
+const PRODUCTS = [
+  { id: 'P001', name: 'Tai nghe Bluetooth Pro',  price: 890000,  icon: '🎧', badge: 'HOT',  desc: 'Âm thanh vòm 3D, pin 30h' },
+  { id: 'P002', name: 'Đồng hồ thông minh X5',   price: 1290000, icon: '⌚', badge: 'NEW',  desc: 'SpO2, ECG, GPS tích hợp' },
+  { id: 'P003', name: 'Bàn phím cơ RGB',          price: 650000,  icon: '⌨️', badge: '-20%', desc: 'Switch Red, kết nối đa thiết bị' },
+  { id: 'P004', name: 'Chuột gaming 16000DPI',    price: 480000,  icon: '🖱️', badge: 'SALE', desc: 'RGB 16.8M màu, chống nước IPX4' },
+  { id: 'P005', name: 'Loa mini không dây',       price: 320000,  icon: '🔊', badge: null,   desc: 'Chống nước IP67, pin 12h' },
+  { id: 'P006', name: 'Sạc dự phòng 20000mAh',   price: 450000,  icon: '🔋', badge: 'HOT',  desc: 'Sạc nhanh 65W, 3 cổng output' },
+];
+
+// ============================================================
+// Per-product affiliate tracking — Last-Click Attribution
+// localStorage key: "aff_products"
+// Structure: { "P001": { clickId, ts }, "ALL": { clickId, ts } }
+// ============================================================
+function getAffProducts() {
+  try { return JSON.parse(localStorage.getItem('aff_products') || '{}'); }
+  catch { return {}; }
+}
+
+function setAffProducts(obj) {
+  localStorage.setItem('aff_products', JSON.stringify(obj));
+}
+
+function getProductTracking(productId) {
+  const map = getAffProducts();
+  // Priority: product-specific > ALL (shop-wide)
+  return map[productId] || map['ALL'] || null;
+}
+
+function initTracking() {
+  const params = new URLSearchParams(window.location.search);
+  const clickId = params.get('aff_click');
+  const productId = params.get('product') || 'ALL';
+
+  if (clickId) {
+    const map = getAffProducts();
+    const isOverwrite = !!map[productId];
+    const prev = map[productId];
+
+    // Last-click attribution: overwrite existing entry for this product
+    map[productId] = { clickId, ts: Date.now() };
+    setAffProducts(map);
+
+    // Clean URL
+    window.history.replaceState({}, '', window.location.pathname);
+
+    if (isOverwrite && prev?.clickId !== clickId) {
+      const product = PRODUCTS.find(p => p.id === productId);
+      const name = product ? product.name : (productId === 'ALL' ? 'toàn bộ shop' : productId);
+      showToast(`⚡ Last-click: tracking "${name}" cập nhật sang click mới`, 'warning');
+    } else {
+      const product = PRODUCTS.find(p => p.id === productId);
+      const name = product ? product.name : (productId === 'ALL' ? 'Toàn bộ shop' : productId);
+      showToast(`🎯 Affiliate link: "${name}" đã được tracking`, 'success');
+    }
+  }
+
+  renderAffSummaryBar();
+  updateDebugPanel();
+}
+
+// ============================================================
+// UI: Affiliate summary bar + product badges
+// ============================================================
+function renderAffSummaryBar() {
+  const map = getAffProducts();
+  const keys = Object.keys(map);
+  const bar = document.getElementById('affSummaryBar');
+  const tags = document.getElementById('affSummaryTags');
+  const counter = document.getElementById('affActiveCount');
+
+  if (!keys.length) {
+    bar.classList.add('hidden');
+    counter.classList.add('hidden');
+    return;
+  }
+
+  bar.classList.remove('hidden');
+  counter.classList.remove('hidden');
+  counter.textContent = `${keys.length} tracking active`;
+
+  tags.innerHTML = keys.map(k => {
+    const product = PRODUCTS.find(p => p.id === k);
+    const label = product ? `${product.icon} ${product.id}` : '🛍️ ALL';
+    return `<span class="aff-badge inline-flex items-center gap-1 text-[10px] bg-green-200 text-green-800 px-2 py-0.5 rounded-full font-medium">${label} ✓</span>`;
+  }).join('');
+}
+
+function renderProducts() {
+  const map = getAffProducts();
+  const grid = document.getElementById('productGrid');
+
+  grid.innerHTML = PRODUCTS.map(p => {
+    const hasTracking = !!(map[p.id] || map['ALL']);
+    const specificTracking = !!map[p.id];
+
+    return `
+      <div class="product-card bg-white border-2 ${hasTracking ? 'border-green-200' : 'border-gray-100'} rounded-2xl p-3 shadow-sm"
+           onclick="addToCart('${p.id}')">
+        <div class="flex items-start justify-between mb-1">
+          ${p.badge ? `<span class="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">${p.badge}</span>` : '<span></span>'}
+          ${hasTracking
+            ? `<span class="aff-badge text-[9px] font-bold ${specificTracking ? 'bg-green-500 text-white' : 'bg-blue-100 text-blue-600'} px-1.5 py-0.5 rounded-full">
+                ${specificTracking ? '🎯 Direct' : '🔗 Shop'}
+              </span>`
+            : ''
+          }
+        </div>
+        <div class="text-4xl text-center my-2">${p.icon}</div>
+        <p class="text-xs font-semibold text-gray-900 leading-tight">${p.name}</p>
+        <p class="text-[10px] text-gray-400 mt-0.5 leading-tight">${p.desc}</p>
+        <div class="mt-2 flex items-center justify-between">
+          <span class="text-sm font-bold text-indigo-600">${fmt(p.price)}</span>
+          <button class="bg-indigo-600 text-white text-[10px] px-2 py-1 rounded-lg font-medium">+ Thêm</button>
+        </div>
+        ${hasTracking ? `
+          <div class="mt-1.5 border-t border-green-100 pt-1.5">
+            <p class="text-[9px] text-green-600 font-medium">${specificTracking ? '🎯 Affiliate riêng sản phẩm này' : '🔗 Affiliate shop-wide'}</p>
+          </div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+// ============================================================
+// Cart
+// ============================================================
+let cart = [];
+
+function addToCart(productId) {
+  const product = PRODUCTS.find(p => p.id === productId);
+  const existing = cart.find(i => i.id === productId);
+  if (existing) existing.qty++;
+  else cart.push({ ...product, qty: 1 });
+  updateCartBadge();
+  showToast(`${product.icon} Đã thêm ${product.name}`);
+}
+
+function updateQty(productId, delta) {
+  const item = cart.find(i => i.id === productId);
+  if (!item) return;
+  item.qty += delta;
+  if (item.qty <= 0) cart = cart.filter(i => i.id !== productId);
+  updateCartBadge();
+  renderCartDrawer();
+}
+
+function updateCartBadge() {
+  const n = cart.reduce((s, i) => s + i.qty, 0);
+  const el = document.getElementById('cartBadge');
+  if (n > 0) { el.textContent = n; el.classList.remove('hidden'); el.classList.add('flex'); }
+  else { el.classList.add('hidden'); el.classList.remove('flex'); }
+}
+
+function cartTotal() { return cart.reduce((s, i) => s + i.price * i.qty, 0); }
+
+function openCart() {
+  renderCartDrawer();
+  document.getElementById('cartOverlay').classList.remove('hidden');
+  document.getElementById('cartDrawer').classList.remove('hidden');
+}
+
+function closeCart() {
+  document.getElementById('cartOverlay').classList.add('hidden');
+  document.getElementById('cartDrawer').classList.add('hidden');
+}
+
+function renderCartDrawer() {
+  const el = document.getElementById('cartItems');
+  if (!cart.length) {
+    el.innerHTML = '<p class="text-center text-gray-400 text-sm py-4">Giỏ hàng trống</p>';
+  } else {
+    el.innerHTML = cart.map(item => {
+      const tracking = getProductTracking(item.id);
+      const isSpecific = !!getAffProducts()[item.id];
+      return `
+        <div class="space-y-1">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">${item.icon}</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-medium text-gray-900 truncate">${item.name}</p>
+              <p class="text-xs text-indigo-600 font-bold">${fmt(item.price)} × ${item.qty}</p>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="updateQty('${item.id}', -1)" class="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 text-xs font-bold flex items-center justify-center">−</button>
+              <span class="text-sm font-bold w-4 text-center">${item.qty}</span>
+              <button onclick="updateQty('${item.id}', 1)" class="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 text-xs font-bold flex items-center justify-center">+</button>
+            </div>
+          </div>
+          ${tracking
+            ? `<div class="ml-9 text-[10px] ${isSpecific ? 'text-green-600 bg-green-50' : 'text-blue-600 bg-blue-50'} px-2 py-0.5 rounded-full inline-block">
+                ${isSpecific ? '🎯' : '🔗'} Affiliate tracked
+              </div>`
+            : `<div class="ml-9 text-[10px] text-gray-400">⚪ Direct (không có affiliate)</div>`
+          }
+        </div>`;
+    }).join('');
+  }
+  document.getElementById('cartTotal').textContent = fmt(cartTotal()) + ' VNĐ';
+}
+
+function proceedCheckout() {
+  if (!cart.length) { showToast('Giỏ hàng đang trống!', 'error'); return; }
+  closeCart();
+  openCheckout();
+}
+
+// ============================================================
+// Checkout
+// ============================================================
+function buildOrderWebhooks(orderId, email) {
+  const webhooks = [];
+  const usedClickIds = new Set();
+
+  cart.forEach(item => {
+    const tracking = getProductTracking(item.id);
+    if (!tracking) return;
+
+    // Tránh gửi trùng click_id cho cùng 1 click (ALL tracking dùng 1 lần)
+    const mapKey = getAffProducts()[item.id] ? item.id : 'ALL';
+    const dedupeKey = tracking.clickId + '-' + mapKey;
+    if (usedClickIds.has(dedupeKey)) return;
+    usedClickIds.add(dedupeKey);
+
+    webhooks.push({
+      serviceType: 'ecommerce',
+      serviceTransactionId: `${orderId}-${item.id}`,
+      endUserId: email,
+      transactionAmount: item.price * item.qty,
+      clickId: tracking.clickId,
+      _productName: item.name,
+      _productId: item.id,
+      _isSpecific: !!getAffProducts()[item.id],
+    });
+  });
+  return webhooks;
+}
+
+function openCheckout() {
+  const orderId = 'ORD-' + Date.now();
+  document.getElementById('ckTotal').textContent = fmt(cartTotal()) + ' VNĐ';
+  document.getElementById('ckItems').textContent = cart.map(i => `${i.name} ×${i.qty}`).join(', ');
+  document.getElementById('placeOrderBtn').dataset.orderId = orderId;
+
+  // Attribution preview per product
+  const email = document.getElementById('ckEmail')?.value || 'user@shopapp.vn';
+  const webhooks = buildOrderWebhooks(orderId, email);
+  const attrEl = document.getElementById('checkoutAttrItems');
+
+  if (!webhooks.length) {
+    attrEl.innerHTML = `<p class="text-xs text-gray-500">⚪ Không có sản phẩm nào có affiliate tracking — mua direct</p>`;
+  } else {
+    attrEl.innerHTML = cart.map(item => {
+      const tracking = getProductTracking(item.id);
+      const wh = webhooks.find(w => w._productId === item.id);
+      const isSpecific = !!getAffProducts()[item.id];
+      if (tracking) {
+        return `<div class="flex items-center justify-between text-xs">
+          <span class="flex items-center gap-1">
+            <span>${item.icon}</span>
+            <span class="text-gray-700">${item.name}</span>
+            <span class="text-[9px] ${isSpecific ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'} px-1 rounded">${isSpecific ? 'Direct' : 'Shop-wide'}</span>
+          </span>
+          <span class="text-green-600 font-medium">Tracked ✓</span>
+        </div>`;
+      } else {
+        return `<div class="flex items-center justify-between text-xs">
+          <span class="flex items-center gap-1"><span>${item.icon}</span><span class="text-gray-500">${item.name}</span></span>
+          <span class="text-gray-400">Direct</span>
+        </div>`;
+      }
+    }).join('');
+  }
+
+  document.getElementById('checkoutOverlay').classList.remove('hidden');
+}
+
+function closeCheckout() {
+  document.getElementById('checkoutOverlay').classList.add('hidden');
+}
+
+async function placeOrder(e) {
+  e.preventDefault();
+  const btn = document.getElementById('placeOrderBtn');
+  const orderId = btn.dataset.orderId;
+  const email = document.getElementById('ckEmail').value;
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang xử lý...';
+
+  const webhooks = buildOrderWebhooks(orderId, email);
+  const results = [];
+
+  for (const wh of webhooks) {
+    const payload = {
+      serviceType: wh.serviceType,
+      serviceTransactionId: wh.serviceTransactionId,
+      endUserId: wh.endUserId,
+      transactionAmount: wh.transactionAmount,
+      clickId: wh.clickId,
+    };
+    try {
+      const res = await fetch(API + '/api/webhooks/conversion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      results.push({ ...wh, conversion: data, ok: true });
+    } catch (err) {
+      results.push({ ...wh, error: err.message, ok: false });
+    }
+  }
+
+  // Direct products (no affiliate)
+  cart.forEach(item => {
+    if (!getProductTracking(item.id)) {
+      results.push({ _productName: item.name, _productId: item.id, ok: null, _direct: true,
+        transactionAmount: item.price * item.qty });
+    }
+  });
+
+  // Clear used trackings
+  const map = getAffProducts();
+  webhooks.forEach(wh => {
+    if (wh.ok !== false) {
+      if (map[wh._productId]) delete map[wh._productId];
+    }
+  });
+  // Remove ALL if it was used
+  if (webhooks.some(w => !getAffProducts()[w._productId])) delete map['ALL'];
+  setAffProducts(map);
+
+  closeCheckout();
+  cart = [];
+  updateCartBadge();
+  renderAffSummaryBar();
+  renderProducts();
+  showSuccessScreen(orderId, results);
+}
+
+function showSuccessScreen(orderId, results) {
+  document.getElementById('screenShop').classList.add('hidden');
+  document.getElementById('screenSuccess').classList.remove('hidden');
+  document.getElementById('successOrderId').textContent = `Mã đơn: ${orderId}`;
+
+  const el = document.getElementById('successConversions');
+  if (!results.length) {
+    el.innerHTML = '<p class="text-center text-gray-400 text-sm">Không có conversion nào</p>';
+    return;
+  }
+
+  el.innerHTML = results.map(r => {
+    if (r._direct) {
+      return `<div class="bg-gray-50 border border-gray-200 rounded-2xl p-3 flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-600">${r._productName}</p>
+          <p class="text-xs text-gray-400">${fmt(r.transactionAmount)} VNĐ · Direct</p>
+        </div>
+        <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">⚪ No affiliate</span>
+      </div>`;
+    }
+    if (r.ok && r.conversion) {
+      return `<div class="bg-green-50 border border-green-200 rounded-2xl p-3">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <p class="text-sm font-semibold text-gray-900">${r._productName}</p>
+            <p class="text-xs text-gray-500">${fmt(r.transactionAmount)} VNĐ · ${r._isSpecific ? '🎯 Direct tracking' : '🔗 Shop-wide tracking'}</p>
+          </div>
+          <span class="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full font-medium">✓ Recorded</span>
+        </div>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+          <span class="text-gray-500">Hoa hồng:</span>
+          <span class="font-bold text-green-600">+${fmt(r.conversion.commissionAmount)} VNĐ</span>
+          <span class="text-gray-500">Tracking:</span>
+          <span class="font-mono text-indigo-600">${r.conversion.trackingCode}</span>
+          <span class="text-gray-500">Method:</span>
+          <span class="text-amber-700 font-medium">📦 LocalStorage</span>
+        </div>
+      </div>`;
+    }
+    return `<div class="bg-red-50 border border-red-200 rounded-2xl p-3 flex items-center justify-between">
+      <div>
+        <p class="text-sm text-gray-900">${r._productName}</p>
+        <p class="text-xs text-red-600">${r.error}</p>
+      </div>
+      <span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">❌ Error</span>
+    </div>`;
+  }).join('');
+}
+
+function goBackToShop() {
+  document.getElementById('screenSuccess').classList.add('hidden');
+  document.getElementById('screenShop').classList.remove('hidden');
+  renderProducts();
+}
+
+// ============================================================
+// Debug panel
+// ============================================================
+function openDebug() {
+  updateDebugPanel();
+  document.getElementById('debugOverlay').classList.remove('hidden');
+  document.getElementById('debugPanel').classList.remove('hidden');
+}
+function closeDebug() {
+  document.getElementById('debugOverlay').classList.add('hidden');
+  document.getElementById('debugPanel').classList.add('hidden');
+}
+
+function updateDebugPanel() {
+  // Cookies
+  const cookie = document.cookie || '(trống)';
+  document.getElementById('dbgCookie').textContent = cookie;
+
+  // Per-product tracking
+  const map = getAffProducts();
+  const keys = Object.keys(map);
+  const productsEl = document.getElementById('dbgProducts');
+  if (!keys.length) {
+    productsEl.innerHTML = '<span class="text-slate-500 text-xs italic">Chưa có tracking data</span>';
+  } else {
+    productsEl.innerHTML = keys.map(k => {
+      const product = PRODUCTS.find(p => p.id === k);
+      const label = product ? `${product.icon} ${product.id} — ${product.name}` : '🛍️ ALL (shop-wide)';
+      const entry = map[k];
+      const age = Math.round((Date.now() - entry.ts) / 1000);
+      return `<div class="border border-slate-700 rounded p-1.5 text-[10px]">
+        <p class="text-green-400 font-medium">${label}</p>
+        <p class="text-slate-400 font-mono mt-0.5">clickId: ${entry.clickId.slice(0,8)}...${entry.clickId.slice(-4)}</p>
+        <p class="text-slate-500 mt-0.5">Lưu: ${age}s trước · Last-click wins</p>
+      </div>`;
+    }).join('');
+  }
+
+  // Webhook preview
+  const dummyOrderId = 'ORD-PREVIEW';
+  const webhooks = buildOrderWebhooks(dummyOrderId, 'user@shopapp.vn');
+  const whEl = document.getElementById('dbgWebhooks');
+  if (!webhooks.length) {
+    whEl.innerHTML = '<span class="text-slate-500 text-xs italic">Không có webhook (không có sản phẩm nào trong giỏ có affiliate tracking)</span>';
+  } else {
+    whEl.innerHTML = webhooks.map((wh, i) => `
+      <div class="text-[10px] border border-slate-700 rounded p-1.5">
+        <p class="text-yellow-400 font-medium">Webhook #${i+1}: ${wh._productName}</p>
+        <p class="text-slate-400 font-mono">clickId: ${wh.clickId.slice(0,8)}...${wh.clickId.slice(-4)}</p>
+        <p class="text-slate-400 font-mono">txId: ${wh.serviceTransactionId}</p>
+        <p class="text-slate-400 font-mono">amount: ${fmt(wh.transactionAmount)} VNĐ</p>
+      </div>`).join('');
+  }
+}
+
+function clearAffStorage() {
+  setAffProducts({});
+  renderAffSummaryBar();
+  renderProducts();
+  updateDebugPanel();
+  showToast('Đã xóa toàn bộ affiliate tracking', 'warning');
+}
+
+// ============================================================
+// Toast
+// ============================================================
+let toastTimer;
+function showToast(msg, type = 'info') {
+  const inner = document.getElementById('shopToastInner');
+  const outer = document.getElementById('shopToast');
+  const colors = { success:'bg-green-700', error:'bg-red-700', info:'bg-gray-900', warning:'bg-amber-600' };
+  inner.className = `toast-shop text-white text-xs px-4 py-2.5 rounded-xl shadow-lg text-center ${colors[type]}`;
+  inner.textContent = msg;
+  outer.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => outer.classList.add('hidden'), 3000);
+}
+
+function fmt(n) {
+  return new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
+}
+
+// ============================================================
+// Init
+// ============================================================
+initTracking();
+renderProducts();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet sln add *)",
+      "Bash(dotnet add *)",
+      "Bash(dotnet build *)",
+      "Bash(xargs ls)",
+      "Bash(node --input-type=module)",
+      "Bash(node --check /tmp/shop_js_check.js)",
+      "Bash(node --check /tmp/cms_js_check.js)",
+      "Bash(dotnet tool *)",
+      "Bash(dotnet serve *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8081/cms.html)",
+      "Bash(kill %1)",
+      "Bash(node --check /tmp/cms_check.js)"
+    ]
+  }
+}
