@@ -28,6 +28,9 @@ public class TrackingService(AffDbContext db, AuditService audit)
         if (campaign.Status != CampaignStatus.Active)
             throw new InvalidOperationException("Campaign is not active.");
 
+        if (!campaign.IsWithinDateRange())
+            throw new InvalidOperationException("Campaign is outside its valid date range.");
+
         // Duplicate click dedup: same IP + same trackingCode within 24 h → reuse existing click
         var cutoff = DateTime.UtcNow.AddHours(-24);
         var existingClick = await db.Clicks
@@ -94,6 +97,10 @@ public class TrackingService(AffDbContext db, AuditService audit)
             throw new InvalidOperationException(
                 $"Click đã hết hạn attribution window ({campaign.AttributionWindowDays} ngày). Conversion không được ghi nhận.");
 
+        if (campaign.MinOrderAmount.HasValue && req.TransactionAmount < campaign.MinOrderAmount.Value)
+            throw new InvalidOperationException(
+                $"Giá trị đơn hàng ({req.TransactionAmount:N0} VNĐ) thấp hơn mức tối thiểu ({campaign.MinOrderAmount.Value:N0} VNĐ).");
+
         var commission = campaign.CalculateCommission(req.TransactionAmount);
 
         if (!campaign.HasBudgetFor(commission))
@@ -124,8 +131,13 @@ public class TrackingService(AffDbContext db, AuditService audit)
             conversion.MarkSuspicious(string.Join("; ", fraudReasons));
 
         db.Conversions.Add(conversion);
+        var wasActive = campaign.Status == CampaignStatus.Active;
         campaign.AddSpentBudget(commission);
         link.IncrementConversions();
+
+        if (wasActive && campaign.Status == CampaignStatus.Paused)
+            audit.Log("Campaign", campaign.Id, "AutoPaused", "Active", "Paused",
+                metadata: $"budget exhausted: {campaign.SpentBudget:N0}/{campaign.MaxBudget:N0}");
 
         if (click != null)
             click.MarkConverted(conversion.Id);

@@ -20,7 +20,8 @@ public class CampaignService(AffDbContext db, AuditService audit)
         var campaign = Campaign.Create(
             req.PartnerId, req.Name, req.Description, req.ServiceType,
             req.CommissionType, req.CommissionValue, req.StartDate, req.EndDate,
-            req.MaxBudget, req.AttributionWindowDays);
+            req.MaxBudget, req.AttributionWindowDays, req.MinOrderAmount,
+            req.MaxCommissionPerConversion);
 
         db.Campaigns.Add(campaign);
         audit.Log("Campaign", campaign.Id, "Created", newStatus: "Draft");
@@ -40,7 +41,7 @@ public class CampaignService(AffDbContext db, AuditService audit)
             ?? throw new KeyNotFoundException("Campaign not found.");
         campaign.Update(req.Name, req.Description, req.CommissionType,
             req.CommissionValue, req.StartDate, req.EndDate, req.MaxBudget,
-            req.AttributionWindowDays);
+            req.AttributionWindowDays, req.MinOrderAmount, req.MaxCommissionPerConversion);
         await db.SaveChangesAsync();
         return CampaignMapper.ToResponse(campaign);
     }

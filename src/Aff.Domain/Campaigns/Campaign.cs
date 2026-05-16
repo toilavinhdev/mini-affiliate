@@ -16,6 +16,8 @@ public class Campaign : AggregateRoot
     public DateTime StartDate { get; private set; }
     public DateTime? EndDate { get; private set; }
     public int? AttributionWindowDays { get; private set; }
+    public decimal? MinOrderAmount { get; private set; }
+    public decimal? MaxCommissionPerConversion { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
     private Campaign() { }
@@ -23,7 +25,8 @@ public class Campaign : AggregateRoot
     public static Campaign Create(Guid partnerId, string name, string description,
         string serviceType, CommissionType commissionType, decimal commissionValue,
         DateTime startDate, DateTime? endDate = null, decimal? maxBudget = null,
-        int? attributionWindowDays = null)
+        int? attributionWindowDays = null, decimal? minOrderAmount = null,
+        decimal? maxCommissionPerConversion = null)
     {
         return new Campaign
         {
@@ -40,6 +43,8 @@ public class Campaign : AggregateRoot
             StartDate = startDate,
             EndDate = endDate,
             AttributionWindowDays = attributionWindowDays,
+            MinOrderAmount = minOrderAmount,
+            MaxCommissionPerConversion = maxCommissionPerConversion,
             CreatedAt = DateTime.UtcNow
         };
     }
@@ -65,7 +70,8 @@ public class Campaign : AggregateRoot
 
     public void Update(string name, string description, CommissionType commissionType,
         decimal commissionValue, DateTime startDate, DateTime? endDate, decimal? maxBudget,
-        int? attributionWindowDays = null)
+        int? attributionWindowDays = null, decimal? minOrderAmount = null,
+        decimal? maxCommissionPerConversion = null)
     {
         if (Status == CampaignStatus.Ended)
             throw new InvalidOperationException("Cannot update an ended campaign.");
@@ -77,6 +83,16 @@ public class Campaign : AggregateRoot
         EndDate = endDate;
         MaxBudget = maxBudget;
         AttributionWindowDays = attributionWindowDays;
+        MinOrderAmount = minOrderAmount;
+        MaxCommissionPerConversion = maxCommissionPerConversion;
+    }
+
+    public bool IsWithinDateRange()
+    {
+        var now = DateTime.UtcNow;
+        if (now < StartDate) return false;
+        if (EndDate.HasValue && now > EndDate.Value) return false;
+        return true;
     }
 
     public bool IsClickWithinWindow(DateTime clickedAt)
@@ -87,9 +103,12 @@ public class Campaign : AggregateRoot
 
     public decimal CalculateCommission(decimal transactionAmount)
     {
-        return CommissionType == CommissionType.PercentageOfOrder
+        var commission = CommissionType == CommissionType.PercentageOfOrder
             ? transactionAmount * CommissionValue / 100m
             : CommissionValue;
+        if (MaxCommissionPerConversion.HasValue)
+            commission = Math.Min(commission, MaxCommissionPerConversion.Value);
+        return commission;
     }
 
     public bool HasBudgetFor(decimal commission)
@@ -97,7 +116,12 @@ public class Campaign : AggregateRoot
         return MaxBudget == null || (SpentBudget + commission) <= MaxBudget;
     }
 
-    public void AddSpentBudget(decimal commission) => SpentBudget += commission;
+    public void AddSpentBudget(decimal commission)
+    {
+        SpentBudget += commission;
+        if (MaxBudget.HasValue && SpentBudget >= MaxBudget.Value && Status == CampaignStatus.Active)
+            Status = CampaignStatus.Paused;
+    }
 
     public void RefundSpentBudget(decimal commission) => SpentBudget = Math.Max(0, SpentBudget - commission);
 }

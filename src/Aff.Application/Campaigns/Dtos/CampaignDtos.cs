@@ -12,7 +12,9 @@ public record CreateCampaignRequest(
     DateTime StartDate,
     DateTime? EndDate = null,
     decimal? MaxBudget = null,
-    int? AttributionWindowDays = null);
+    int? AttributionWindowDays = null,
+    decimal? MinOrderAmount = null,
+    decimal? MaxCommissionPerConversion = null);
 
 public record UpdateCampaignRequest(
     string Name,
@@ -22,7 +24,9 @@ public record UpdateCampaignRequest(
     DateTime StartDate,
     DateTime? EndDate = null,
     decimal? MaxBudget = null,
-    int? AttributionWindowDays = null);
+    int? AttributionWindowDays = null,
+    decimal? MinOrderAmount = null,
+    decimal? MaxCommissionPerConversion = null);
 
 public record CreateLinkRequest(
     string TargetUrl,
@@ -42,6 +46,8 @@ public record CampaignResponse(
     DateTime StartDate,
     DateTime? EndDate,
     int? AttributionWindowDays,
+    decimal? MinOrderAmount,
+    decimal? MaxCommissionPerConversion,
     DateTime CreatedAt);
 
 public record AffiliateLinkResponse(
@@ -63,7 +69,7 @@ public static class CampaignMapper
         c.Id, c.PartnerId, c.Name, c.Description, c.ServiceType,
         c.CommissionType.ToString(), c.CommissionValue, c.MaxBudget,
         c.SpentBudget, c.Status.ToString(), c.StartDate, c.EndDate,
-        c.AttributionWindowDays, c.CreatedAt);
+        c.AttributionWindowDays, c.MinOrderAmount, c.MaxCommissionPerConversion, c.CreatedAt);
 
     public static AffiliateLinkResponse ToResponse(AffiliateLink l, string baseUrl) => new(
         l.Id, l.CampaignId, l.PartnerId, l.TrackingCode,
